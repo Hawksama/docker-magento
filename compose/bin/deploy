@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-bin/composer install
-bin/magento maintenance:enable
-bin/cli rm -rf generated/code var/view_preprocessed
-bin/magento cache:flush
-bin/magento setup:upgrade
-bin/magento setup:di:compile
-bin/magento setup:static-content:deploy en_US "$@" -f
-bin/magento maintenance:disable
-bin/magento cache:flush
+#Created by Carabus
+
+# shellcheck source=../env/magento.env
+source env/theme.env
+
+bin/cli rm -rf "$THEME_STATIC_PATH" var/view_preprocessed/*;
+
+#php bin/magento deploy:mode:set developer -s;
+bin/magento cache:flush;
+bin/magento setup:static-content:deploy --theme "$ACTIVE_THEME" --area frontend "$LOCAL_THEME_LANGUAGE" "$@" -f;
+bin/magento setup:static-content:deploy --area adminhtml -f;
+bin/magento cache:flush;
+echo "Frontend Completed";

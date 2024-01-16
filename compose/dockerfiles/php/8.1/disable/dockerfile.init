@@ -1,0 +1,20 @@
+FROM harbor-1.divante.pl/catering24/php8.1-base
+
+USER root
+COPY --chown=app:app /src ./
+COPY --chown=app:app /env/env.php.sample ./app/etc/env.php
+
+RUN chmod u+x bin/magento
+
+RUN mv nginx.conf.sample nginx.conf
+
+USER app
+RUN composer config --no-plugins allow-plugins.magento/magento-composer-installer true
+RUN composer config --no-plugins allow-plugins.magento/inventory-composer-installer true
+RUN composer config --no-plugins allow-plugins.laminas/laminas-dependency-plugin true
+
+ARG COMPOSE_MODE
+RUN composer install ${COMPOSE_MODE} --no-interaction --no-progress --prefer-dist
+
+RUN composer dump-autoload --optimize
+USER app:app

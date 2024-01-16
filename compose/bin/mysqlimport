@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+if [ -z "$1" ]; then
+  path="$(bin/cli find dbdump -iregex '.*\.\(sql\|gz\)' | head -n1)"
+  [ -z "$PATH" ] && echo "There is no *.sql or *gz files in dbdump directory" && exit
+  extension="${path##*.}"
+  if [ $extension = gz ]; then
+    echo "bin/n98-magerun2 -v db:import -c gz $path...."
+    bin/n98-magerun2 -v db:import -c gz $path
+  else
+    echo "bin/n98-magerun2 -v db:import $path...."
+    bin/n98-magerun2 -v db:import $path
+  fi
+else
+  echo "bin/n98-magerun2 -v db:import "$1" ...."
+  bin/n98-magerun2 -v db:import "$1"
+fi

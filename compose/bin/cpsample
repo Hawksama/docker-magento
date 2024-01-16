@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+help() {
+  # Display Help
+  echo "Prepare docker setup for project."
+  echo
+  echo "Syntax: optional parameter [-m]"
+  echo "options:"
+  echo "h     Print this Help."
+  echo "m     Prepare environment files for macOS."
+  echo
+}
+
+function mac_settings() {
+  cp env/env.php.sample src/app/etc/env.php
+  cp docker_config/compose/compose.yaml.mac.sample compose.yaml
+  cp docker_config/compose/compose.dev.yaml.mac.sample compose.dev.yaml
+}
+
+function linux_settings() {
+  cp env/env.php.sample src/app/etc/env.php
+  cp docker_config/compose/compose.yaml.sample compose.yaml
+  cp docker_config/compose/compose.dev.yaml.sample compose.dev.yaml
+}
+
+parse_parameter() {
+  case $1 in
+  -h)
+    help
+    exit
+    ;;
+  -m)
+    MACSETUP=1
+    ;;
+  "") ;;
+  *)
+    echo "Error: Invalid option, use -h to get help"
+    exit
+    ;;
+  esac
+}
+
+parse_parameter "$1"
+
+if [ -n "$MACSETUP" ]; then
+  echo "Copying docker and magento configuration files for macOS environment"
+  mac_settings
+else
+  echo "Copying docker and magento configuration files for Linux environment"
+  linux_settings
+fi

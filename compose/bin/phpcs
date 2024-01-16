@@ -1,2 +1,6 @@
 #!/usr/bin/env bash
-bin/clinotty vendor/bin/phpcs --standard=Magento2 --extensions=php,phtml --error-severity=10 --ignore-annotations "$@"
+bin/clinotty vendor/bin/phpcs --standard=Magento2 --exclude=Magento2.CodeAnalysis.EmptyBlock \
+--extensions=php,phtml --error-severity=10 --ignore-annotations \
+ "$@"
+
+# You can use --ignore=$PATH to ignore various files from checking their code standard

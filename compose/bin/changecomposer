@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+# Docker exec command prefix
+docker_exec="bin/clinotty"
+
+# Check and set ownership of /usr/local/bin/composer
+if [ "$($docker_exec stat -c %U:%G /usr/local/bin/composer)" != "app:app" ]; then
+    echo "Setting ownership of /usr/local/bin/composer to app:app"
+    bin/docker-compose exec -u root phpfpm chown app:app /usr/local/bin/composer
+fi
+
+printf "\n$($docker_exec composer --version)"
+printf "\n\nSelect Composer version to install:"
+printf "\n1) Composer version 1"
+printf "\n2) Composer version 2\n"
+read -p "Enter your choice (1 or 2): " choice
+
+if [ "$choice" == "1" ]; then
+    # Check if Composer version 1 is already installed
+    if [ "$($docker_exec composer --version | grep -c 'Composer version 1')" -eq 0 ]; then
+        # Install Composer version 1
+        bin/composer self-update --1
+    else
+        echo "Composer version 1 is already installed."
+    fi
+elif [ "$choice" == "2" ]; then
+    # Check if Composer version 2 is already installed
+    if [ "$($docker_exec composer --version | grep -c 'Composer version 2')" -eq 0 ]; then
+        # Install Composer version 2
+        bin/composer self-update --2
+    else
+        echo "Composer version 2 is already installed."
+    fi
+else
+    echo "Invalid choice. Please enter 1 or 2."
+fi

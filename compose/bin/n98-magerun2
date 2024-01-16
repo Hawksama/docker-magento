@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
-if ! bin/cliq ls bin/n98-magerun2.phar; then
-  echo "Downloading n98-magerun2.phar, just a moment..."
-  bin/clinotty curl -sS -O https://files.magerun.net/n98-magerun2.phar
-  bin/clinotty curl -sS -o n98-magerun2.phar.sha256 https://files.magerun.net/sha256.php?file=n98-magerun2.phar
-  bin/clinotty shasum -a 256 -c n98-magerun2.phar.sha256
+
+N98_VERSION="latest"
+N98_PHAR="n98-magerun2-$N98_VERSION.phar"
+N98_PHAR_URL="https://files.magerun.net/$N98_PHAR"
+N98_SHA256_URL="https://files.magerun.net/sha256.php?file=$N98_PHAR"
+N98_SHA256_FILE="$N98_PHAR.sha256"
+
+if ! bin/cliq ls bin/$N98_PHAR; then
+  echo "Downloading $N98_PHAR, just a moment..."
+  bin/clinotty curl -sS -O "$N98_PHAR_URL"
+  bin/clinotty curl -sS -o "$N98_SHA256_FILE" "$N98_SHA256_URL"
+  bin/clinotty shasum -a 256 -c "$N98_SHA256_FILE"
   [ $? != 0 ] && echo "sha256 checksum do not match!" && exit
 
-  bin/cliq chmod +x n98-magerun2.phar
+  bin/cliq chmod +x "$N98_PHAR"
   bin/cliq mkdir -p bin
-  bin/cliq mv n98-magerun2.phar bin
+  bin/cliq mv "$N98_PHAR" bin
 fi
 
-bin/cli bin/n98-magerun2.phar "$@"
+bin/cli bin/$N98_PHAR "$@"

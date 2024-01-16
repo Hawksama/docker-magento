@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+source env/phpfpm.env
+
+serverName="${XDEBUG_SERVER_NAME}"
+bin/docker-compose exec -e PHP_IDE_CONFIG=serverName="$serverName" phpfpm php "$@"

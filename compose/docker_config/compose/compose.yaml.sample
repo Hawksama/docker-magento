@@ -25,7 +25,6 @@ services:
       - appdata:/var/www/html
       - sockdata:/sock
       - ssldata:/etc/nginx/certs
-      - vendor:/var/www/html/vendor #only for macOS to synchronize vendor with SFTP, comment it on Linux
     #extra_hosts: &appextrahosts
       ## Selenium support, replace "magento.test" with URL of your site
       #- "magento.test:172.17.0.1"
@@ -50,7 +49,7 @@ services:
       - "3306:3306"
     env_file: env/db.env
     volumes:
-      - dbdata:/var/lib/mysql
+      - ./dbdata:/var/lib/mysql
 
   redis:
     image: redis:6.2-alpine
@@ -116,19 +115,9 @@ services:
   #    - "5900:5900"
   #  extra_hosts: *appextrahosts
 
-  ##  only for macOS to synchronize vendor with SFTP, comment it on Linux
-  sftp:
-    image: "emberstack/sftp"
-    ports:
-      - "2222:22"
-    volumes:
-      - ./docker_config/config/sftp.json:/app/config/sftp.json
-      - vendor:/home/docker/upload
-
 volumes:
   appdata:
   dbdata:
   rabbitmqdata:
   sockdata:
   ssldata:
-  vendor: #only for macOS to synchronize vendor with SFTP, comment it on Linux

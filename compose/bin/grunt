@@ -1,2 +1,25 @@
 #!/usr/bin/env bash
-bin/cli npx grunt "$@"
+
+# Check if any arguments are passed to grunt.sh
+if [ "$#" -eq 0 ]; then
+    # If no arguments, run grunt-watch.sh logic
+
+    # shellcheck source=../env/theme.env
+    source env/theme.env
+
+    echo -e "\nRemoving.. ${THEME_STATIC_PATH} var/view_preprocessed/*\n";
+    bin/cli rm -rf "${THEME_STATIC_PATH}" var/view_preprocessed/*;
+
+    #grunt exec;
+    bin/magento setup:static-content:deploy --theme "${ACTIVE_THEME}" --area frontend "${LOCAL_THEME_LANGUAGE}" -f;
+    echo -e "\nsetup:static-content:deploy ----- DONE\n";
+    bin/magento dev:source-theme:deploy --type=less --locale="${LOCAL_THEME_LANGUAGE}" --area=frontend --theme="${ACTIVE_THEME}";
+    echo -e "\ndev:source-theme:deploy ----- DONE\n";
+    bin/grunt less:${PROJECT_NAME};
+    echo -e "\nless:${PROJECT_NAME} ----- DONE\n";
+    bin/grunt watch;
+
+else
+    # If arguments are provided, run npx grunt with the passed arguments
+    bin/cli npx grunt "$@";
+fi
