@@ -35,15 +35,6 @@ if [ "$1" == -m ]; then
 fi
 
 parse_parameter $SECOND_PARAM
-DOMAIN=${1:-www.butcher.local}
-
-if [ -z $MACSETUP ]; then
-    echo "Preparing setup installation for Linux environment and domain" $DOMAIN
-    bin/cpsample
-  else
-    echo "Preparing setup installation for macOS environment and domain" $DOMAIN
-    bin/cpsample -m
-fi
 
 MEM=$(docker info | grep "Total Memory" | cut -d':' -f2 | xargs | sed s/GiB//)
 # Docker reports RAM 0.2 less than what it is actually set to
@@ -59,6 +50,18 @@ source env/opensearch.env
 source env/magento.env
 # shellcheck source=../env/rabbitmq.env
 source env/rabbitmq.env
+# shellcheck source=../env/phpfpm.env
+source env/phpfpm.env
+
+DOMAIN=${MAGENTO_DOMAIN}
+
+if [ -z $MACSETUP ]; then
+    echo "Preparing setup installation for Linux environment and domain" "$DOMAIN"
+    bin/cpsample
+  else
+    echo "Preparing setup installation for macOS environment and domain" "$DOMAIN"
+    bin/cpsample -m
+fi
 
 bin/stop
 
