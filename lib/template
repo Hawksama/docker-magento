@@ -3,7 +3,6 @@
 # Function to clone the GitHub repository
 clone_repository() {
     git clone "$1" src
-    mkdir ./src/dbdump
 }
 
 # Function to initialize git in the current directory
@@ -19,6 +18,7 @@ initialize_git() {
     git init
     # Ensure these are created so Docker doesn't create them as root
     mkdir -p ~/.composer ~/.ssh
+    mkdir ./src/dbdump
 }
 
 # Call function to initialize git in the current directory
