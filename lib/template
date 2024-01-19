@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 git init -qqq
 git remote add origin https://github.com/Hawksama/docker-magento
 git fetch origin -qqq
@@ -11,3 +12,12 @@ git init
 
 # Ensure these are created so Docker doesn't create them as root
 mkdir -p ~/.composer ~/.ssh
+
+# Check if "src" directory exists
+if [ -d "src" ]; then
+  # If "src" exists, rename it to "src-old"
+  mv src src-old
+fi
+
+# Create a new "src" directory
+mkdir src
