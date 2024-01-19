@@ -1,35 +1,23 @@
 #!/usr/bin/env bash
 
-# Function to clone the GitHub repository
-clone_repository() {
-    git clone "$1" src
-}
+git init -qqq
+git remote add origin https://github.com/Hawksama/docker-magento
+git fetch origin -qqq
+git checkout origin/master -- compose
+mv compose/* ./
+mv compose/.gitignore ./
+mv compose/.vscode ./
+rm -rf compose .git
+git init
 
-# Function to initialize git in the current directory
-initialize_git() {
-    git init -qqq
-    git remote add origin https://github.com/Hawksama/docker-magento
-    git fetch origin -qqq
-    git checkout origin/master -- compose
-    mv compose/* ./
-    mv compose/.gitignore ./
-    mv compose/.vscode ./
-    rm -rf compose .git
-    git init
-    # Ensure these are created so Docker doesn't create them as root
-    mkdir -p ~/.composer ~/.ssh
-    mkdir ./src/dbdump
-}
+# Ensure these are created so Docker doesn't create them as root
+mkdir -p ~/.composer ~/.ssh
 
-# Call function to initialize git in the current directory
-initialize_git
-
-# Check if the user wants to add the GitHub git clone link
-read -p "Do you want to add the GitHub git clone link? (y/n): " answer
-if [ "$answer" == "y" ]; then
-    # Prompt the user to input the GitHub repository URL
-    read -p "Enter the GitHub repository URL for cloning: " repo_url
-
-    # Call function to clone the user-specified GitHub repository inside "src"
-    clone_repository "$repo_url"
+# Check if "src" directory exists
+if [ -d "src" ]; then
+  # If "src" exists, rename it to "src-old"
+  mv src src-old
 fi
+
+# Create a new "src" directory
+mkdir src
