@@ -6,7 +6,7 @@ N98_PHAR_URL="https://files.magerun.net/$N98_PHAR"
 N98_SHA256_URL="https://files.magerun.net/sha256.php?file=$N98_PHAR"
 N98_SHA256_FILE="$N98_PHAR.sha256"
 
-if ! bin/cliq ls bin/$N98_PHAR; then
+if ! bin/cliq ls bin/$N98_PHAR > /dev/null 2>&1; then
   echo "Downloading $N98_PHAR, just a moment..."
   bin/clinotty curl -sS -O "$N98_PHAR_URL"
   bin/clinotty curl -sS -o "$N98_SHA256_FILE" "$N98_SHA256_URL"
