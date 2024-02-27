@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Usage: bin/declare-strict-types [path]
+
+set -e
+
+# Use the provided path or default to app/code
+path=${1:-"app/code"}
+
+#echo "path: src/$path"
+# Find files to update
+files_to_update=$(grep -RL 'declare(strict_types=1)' "src/$path" --include="*.php" --exclude="registration.php") || true
+
+# Display the list of files that will be updated
+if [ -n "$files_to_update" ]; then
+    echo "The following files will be updated:"
+    echo "$files_to_update"
+
+    # Confirm with the user before proceeding
+    read -p "Do you want to proceed? (y/n): " confirm
+    if [[ ! $confirm =~ ^[Yy]$ ]]; then
+        echo "Aborted."
+        exit 1
+    fi
+
+    for file in $files_to_update; do
+        echo "Processing file: $file"
+        awk '/<\?php/ {print; print ""; print "declare(strict_types=1);"; next} 1' "$file" > "$file.temp" || { echo "Error processing $file"; continue; }
+        mv -f "$file.temp" "$file"
+    done
+
+    echo "Files have been updated."
+else
+    echo "No files found that need to be updated."
+fi
