@@ -28,20 +28,24 @@
 View Dockerfiles for the latest tags:
 
 - [markoshust/magento-nginx (Docker Hub)](https://hub.docker.com/r/markoshust/magento-nginx/)
-  - [`1.18`, `1.18-8`](images/nginx/1.18)
+    - [`1.18`, `1.18-8`](images/nginx/1.18)
 - [markoshust/magento-php (Docker Hub)](https://hub.docker.com/r/markoshust/magento-php/)
-  - [`8.1-fpm`, `8.1-fpm-1`](images/php/8.1)
-  - [`8.2-fpm-develop`](images/php/8.2)
+    - [`8.1-fpm`, `8.1-fpm-2`](images/php/8.1)
+    - [`8.2-fpm`, `8.2-fpm-1`](images/php/8.2)
+    - [`8.3-fpm`, `8.3-fpm-develop`](images/php/8.3)
 - [markoshust/magento-opensearch (Docker Hub)](https://hub.docker.com/r/markoshust/magento-opensearch/)
     - [`1.2`, `1.2-0`](images/opensearch/1.2)
-    - [`2.4-develop`](images/opensearch/2.4)
+    - [`2.5`, `2.5-1`](images/opensearch/2.5)
 - [markoshust/magento-elasticsearch (Docker Hub)](https://hub.docker.com/r/markoshust/magento-elasticsearch/)
-  - [`7.17`, `7.17-0`](images/elasticsearch/7.17)
-  - [`8.4-develop`](images/elasticsearch/8.4)
+    - [`7.17`, `7.17-1`](images/elasticsearch/7.17)
+    - [`8.4`, `8.4-0`](images/elasticsearch/8.4)
+    - [`8.5`, `8.5-0`](images/elasticsearch/8.5)
+    - [`8.7`, `8.7-0`](images/elasticsearch/8.7)
 - [markoshust/magento-rabbitmq (Docker Hub)](https://hub.docker.com/r/markoshust/magento-rabbitmq/)
-  - [`3.9`, `3.9-0`](images/rabbitmq/3.9)
+    - [`3.9`, `3.9-0`](images/rabbitmq/3.9)
+    - [`3.11`, `3.11-1`](images/rabbitmq/3.11)
 - [markoshust/ssh (Docker Hub)](https://hub.docker.com/r/markoshust/magento-ssh/)
-  - [`latest`](images/ssh)
+    - [`latest`](images/ssh)
 
 ## Free Course
 
@@ -181,8 +185,8 @@ bin/download 2.4.6-p3 community
 #  --opensearch-port="$OPENSEARCH_PORT" \
 #  --search-engine=opensearch \
 # with:
-#  --elasticsearch-host="$OPENSEARCH_HOST" \
-#  --elasticsearch-port="$OPENSEARCH_PORT" \
+#  --elasticsearch-host="$ES_HOST" \
+#  --elasticsearch-port="$ES_PORT" \
 #  --search-engine=elasticsearch7 \
 
 # Run the setup installer for Magento:
@@ -282,10 +286,12 @@ It is recommended to keep your root docker config files in one repository, and y
 - `bin/download`: Download specific Magento version from Composer to the container, with optional arguments of the version (2.4.6-p3 [default]) and type ("community" [default], "enterprise", or "mageos"). Ex. `bin/download 2.4.6-p3 enterprise`
 - `bin/debug-cli`: Enable Xdebug for bin/magento, with an optional argument of the IDE key. Defaults to PHPSTORM Ex. `bin/debug-cli enable PHPSTORM`
 - `bin/deploy`: Runs the standard Magento deployment process commands. Pass extra locales besides `en_US` via an optional argument. Ex. `bin/deploy nl_NL`
+- `bin/docker-stats`: Display status for CPU, memory usage, and memory limit of currently-running Docker containers.
 - `bin/fixowns`: This will fix filesystem ownerships within the container.
 - `bin/fixperms`: This will fix filesystem permissions within the container.
 - `bin/grunt`: Run the grunt binary. Ex. `bin/grunt exec`
 - `bin/install-php-extensions`: Install PHP extension in the container. Ex. `bin/install-php-extensions sourceguardian`
+- `bin/log`: Monitor the Magento log files. Pass no params to tail all files. Ex. `bin/log debug.log`
 - `bin/magento`: Run the Magento CLI. Ex: `bin/magento cache:flush`
 - `bin/mftf`: Run the Magento MFTF. Ex: `bin/mftf build:project`
 - `bin/mysql`: Run the MySQL CLI with database config from `env/db.env`. Ex. `bin/mysql -e "EXPLAIN core_config_data"` or`bin/mysql < magento.sql`
@@ -308,9 +314,11 @@ It is recommended to keep your root docker config files in one repository, and y
 - `bin/setup-composer-auth`: Setup authentication credentials for Composer.
 - `bin/setup-domain`: Setup Magento domain name. Ex: `bin/setup-domain magento.test`
 - `bin/setup-grunt`: Install and configure Grunt JavaScript task runner to compile .less files
-- `bin/setup-pwa-studio`: (BETA) Install PWA Studio (requires NodeJS and Yarn to be installed on the host machine). Pass in your base site domain, otherwise the default `master-7rqtwti-mfwmkrjfqvbjk.us-4.magentosite.cloud` will be used. Ex: `bin/setup-pwa-studio magento.test`
+- `bin/setup-pwa-studio`: (BETA) Install PWA Studio (requires NodeJS and Yarn to be installed on the host machine). Pass in your base site domain, otherwise the default `master-7rqtwti-mfwmkrjfqvbjk.us-4.magentosite.cloud` will be used. Ex: `bin/setup-pwa-studio magento.test`.
+- `bin/setup-pwa-studio-sampledata`: This script makes it easier to install Venia sample data. Pass in your base site domain, otherwise the default `master-7rqtwti-mfwmkrjfqvbjk.us-4.magentosite.cloud` will be used. Ex: `bin/setup-pwa-studio-sampledata magento.test`.
 - `bin/setup-ssl`: Generate an SSL certificate for one or more domains. Ex. `bin/setup-ssl magento.test foo.test`
 - `bin/setup-ssl-ca`: Generate a certificate authority and copy it to the host.
+- `bin/spx`: Disable or enable output compression to enable or disbale SPX. Accepts params `disable` (default) or `enable`. Ex. `bin/spx enable`
 - `bin/start`: Start all containers, good practice to use this instead of `docker-compose up -d`, as it may contain additional helpers.
 - `bin/status`: Check the container status.
 - `bin/stop`: Stop all project containers.
@@ -535,6 +543,14 @@ Running Docker on Linux should be pretty straight-forward. Note that you need to
 
 Copy `compose.dev-linux.yaml` to `compose.dev.yaml` before installing Magento to take advantage of this setup.
 
+#### Install necessary dependencies
+
+To ensure proper functionality, the docker-magento setup requires a few system dependencies to be installed on Linux. To install these dependencies, please execute the following command from the terminal:
+
+```
+sudo apt install curl libnss3-tools unzip rsync
+```
+
 #### The host.docker.internal hostname
 
 The `host.docker.internal` hostname is used on Docker for Mac/Windows to reference the Docker daemon. On Linux, this hostname does not exist.
@@ -595,7 +611,7 @@ To use it:
 
 In Cloudflare Tunnel configuration, configure the service URL to use type `HTTPS` and a URL of `{name of app container}:{HTTPS port of app container}`. For examplem, `demo-app-1:8443`. Enable the `No TLS Verify` option, since our local certificates are self-signed. You should now be able to access your app via the public hostname defined in Cloudflare Tunnel.
 
-NOTE: Do not leave instances with Cloudflare Tunnel enabled running long-term, as your instance is publicly available to the world. You should ideally turn off tunnel container once testing is finished. 
+NOTE: Do not leave instances with Cloudflare Tunnel enabled running long-term, as your instance is publicly available to the world. You should ideally turn off tunnel container once testing is finished.
 
 ### MFTF
 
@@ -688,6 +704,32 @@ body {
 ```
 
 Upon saving this file, we will see the Grunt watcher detect the changes, and your browser should automatically load the new style without you needing to refresh the page, and without a full browser refresh.
+
+### PHP-SPX
+
+The images also have additional profiler-tracers built-in to the <a href="https://github.com/NoiseByNorthwest/php-spx/tree/master#web-ui" target="_blank">Web UI.</a>
+
+To access the control panel, just open the following URL: `https://magento.test/?SPX_UI_URI=/`
+
+**Suggested Configuration**
+
+- Enabled: Checked
+- Automatic start: Checked
+- Profile internal functions: Unchecked
+- Sampling: 5ms
+- Max profiling depth: Unlimited
+- Additional metrics: Unselected
+
+Changing any options on this page set cookies for the domain for these settings. After then visiting a page on the frontend, you can navigate back to the GUI and scroll to the bottom of the page, and click the related request to view the trace of the request & response.
+
+Profiling is also possible via command line, or curl:
+
+```
+SPX_REPORT=full SPX_ENABLED=1 SPX_SAMPLING_PERIOD=5000 bin/magento {command_name}
+curl --cookie "SPX_REPORT=full; SPX_ENABLED=1; SPX_SAMPLING_PERIOD=5000" https://magento.test/
+```
+
+Additional information of how to work with SPX is available at https://www.youtube.com/watch?v=xk-JiBLsKfA
 
 ## Credits
 
