@@ -79,6 +79,14 @@ bin/clinotty composer config --no-plugins allow-plugins.laminas/laminas-dependen
 echo "Installing composer modules..."
 bin/composer install --ignore-platform-reqs
 
+echo "Checking PHPFPM for issues in nginx configuration (Issues appeared in M2.4.6-p1) where php-fpm:9000 has replaced fastcgi_backend which broke the app container"
+bin/check-requirements
+
+if [ -n "$MACSETUP" ]; then
+  echo "Copying files from container to host..."
+  bin/copyfromcontainer vendor
+fi
+
 echo "Setting bin/magento executable permissions"
 bin/clinotty chmod u+x bin/magento
 
@@ -91,12 +99,13 @@ bin/redis redis-cli flushall
 bin/clinotty rm -rf generated
 bin/clinotty rm -rf var/*
 
- echo "Setting up elasticsearch.. to host {$ES_HOST} and port ${ES_HOST}.."
-bin/magento config:set catalog/search/elasticsearch7_server_hostname "${ES_HOST}" --lock-env
-bin/magento config:set catalog/search/elasticsearch7_server_port "${ES_PORT}" --lock-env
-
 echo "Running magento app:config:import..."
 bin/clinotty bin/magento app:config:import
+
+echo "Setting up elasticsearch.. to host {$ES_HOST} and port ${ES_HOST}.."
+bin/magento config:set catalog/search/elasticsearch7_server_hostname "${ES_HOST}" --lock-env
+bin/magento config:set catalog/search/elasticsearch7_server_port "${ES_PORT}" --lock-env
+bin/magento config:set catalog/search/engine "${ES_VERSION}" --lock-env
 
 echo "Running magento set:up..."
 bin/clinotty bin/magento setup:up
@@ -106,6 +115,16 @@ bin/clinotty bin/magento admin:user:create --admin-user="$MAGENTO_ADMIN_USER" --
 
 echo "Forcing deploy of static content to speed up initial requests..."
 bin/clinotty bin/magento setup:static-content:deploy -f
+
+if [ -n "$MACSETUP" ]; then
+  bin/copyfromcontainer lib
+  bin/copyfromcontainer grunt-config.json.sample
+  bin/copyfromcontainer Gruntfile.js.sample
+  bin/copyfromcontainer nginx.conf.sample
+  bin/copyfromcontainer package.json.sample
+fi
+
+bin/create_phpstan_files
 
 echo "Setting basic URL and generating SSL certificate..."
 bin/setup-domain "${DOMAIN}"
@@ -121,11 +140,6 @@ bin/clinotty bin/magento cron:install
 
 echo "Turning on developer mode..."
 bin/clinotty bin/magento deploy:mode:set developer
-
-if [ -n "$MACSETUP" ]; then
-  echo "Copying vendor files from container to host..."
-  bin/copyfromcontainer vendor
-fi
 
 echo "Docker development environment setup complete."
 echo "You may now access your Magento instance at https://${DOMAIN}/"

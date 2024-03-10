@@ -1,0 +1,19 @@
+#!/bin/bash
+
+nginx_conf_sample="nginx.conf.sample"
+replacement_value="fastcgi_backend"
+
+# Check if nginx.conf.sample exists in the container
+if bin/clinotty test -e "$nginx_conf_sample"; then
+    # Check if the file contains the old value
+    if bin/clinotty grep -q "php-fpm:9000" "$nginx_conf_sample"; then
+        # Replace the old value with the new one within the container
+        bin/clinotty sed -i "s/php-fpm:9000/$replacement_value/" "$nginx_conf_sample"
+        echo "Updated $nginx_conf_sample in docker container: replaced php-fpm:9000 with $replacement_value"
+        bin/copyfromcontainer "$nginx_conf_sample"
+    else
+        echo "No action needed in docker container: $nginx_conf_sample already contains $replacement_value"
+    fi
+else
+    echo "Error: $nginx_conf_sample not found in the container!"
+fi

@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -o errexit
 
-DOMAIN=${1:-magento.test}
-
 # shellcheck source=../env/db.env
 source env/db.env
 # shellcheck source=../env/elasticsearch.env
@@ -15,14 +13,16 @@ source env/magento.env
 source env/rabbitmq.env
 # shellcheck source=../env/redis.env
 source env/redis.env
+# shellcheck source=../env/phpfpm.env
+source env/phpfpm.env
 
-bin/clinotty bin/magento setup:install \
+bin/n98-magerun2 setup:install \
   --db-host="$MYSQL_HOST" \
   --db-name="$MYSQL_DATABASE" \
   --db-user="$MYSQL_USER" \
   --db-password="$MYSQL_PASSWORD" \
-  --base-url=https://"$DOMAIN"/ \
-  --base-url-secure=https://"$DOMAIN"/ \
+  --base-url=https://"$MAGENTO_DOMAIN"/ \
+  --base-url-secure=https://"$MAGENTO_DOMAIN"/ \
   --backend-frontname="$MAGENTO_ADMIN_FRONTNAME" \
   --admin-firstname="$MAGENTO_ADMIN_FIRST_NAME" \
   --admin-lastname="$MAGENTO_ADMIN_LAST_NAME" \
@@ -51,7 +51,4 @@ bin/clinotty bin/magento setup:install \
   --no-interaction \
   --elasticsearch-host="$ES_HOST" \
   --elasticsearch-port="$ES_PORT" \
-  --opensearch-host="$OPENSEARCH_HOST" \
-  --opensearch-port="$OPENSEARCH_PORT" \
-  --search-engine=opensearch \
-  --es-hosts="$ES_HOST"
+  --search-engine=elasticsearch7

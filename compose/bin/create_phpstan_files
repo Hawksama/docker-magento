@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Specify the target folder
+target_folder="src"
+
+# Check if phpstan.neon already exists
+if [ -e "$target_folder/phpstan.neon" ]; then
+    echo "phpstan.neon already exists in the '$target_folder' folder."
+else
+    # Create phpstan.neon file in the target folder
+    cat <<EOT > "$target_folder/phpstan.neon"
+parameters:
+    level: 8
+    reportUnmatchedIgnoredErrors: true
+    tipsOfTheDay: false
+
+    excludePaths:
+
+includes:
+    - phpstan-baseline.neon
+EOT
+    echo "phpstan.neon created in the '$target_folder' folder."
+fi
+
+# Check if phpstan-baseline.neon already exists
+if [ -e "$target_folder/phpstan-baseline.neon" ]; then
+    echo "phpstan-baseline.neon already exists in the '$target_folder' folder."
+else
+    # Create phpstan-baseline.neon file in the target folder
+    cat <<EOT > "$target_folder/phpstan-baseline.neon"
+parameters:
+    ignoreErrors:
+EOT
+    echo "phpstan-baseline.neon created in the '$target_folder' folder."
+fi
