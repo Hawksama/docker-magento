@@ -31,16 +31,16 @@ echo "Setting web/unsecure/base_link_url..."
 bin/magento config:set 'web/unsecure/base_link_url' {{unsecure_base_url}}
 
 echo "Setting web/secure/base_media_url..."
-bin/magento config:set 'web/secure/base_media_url' '{{secure_base_url}}pub/media/'
+bin/magento config:set 'web/secure/base_media_url' '{{secure_base_url}}media/'
 
 echo "Setting web/unsecure/base_media_url..."
-bin/magento config:set 'web/unsecure/base_media_url' '{{unsecure_base_url}}pub/media/'
+bin/magento config:set 'web/unsecure/base_media_url' '{{unsecure_base_url}}media/'
 
 echo "Setting web/secure/base_static_url..."
-bin/magento config:set 'web/secure/base_static_url' '{{secure_base_url}}pub/static/'
+bin/magento config:set 'web/secure/base_static_url' '{{secure_base_url}}static/'
 
 echo "Setting web/unsecure/base_static_url..."
-bin/magento config:set 'web/unsecure/base_static_url' '{{unsecure_base_url}}pub/static/'
+bin/magento config:set 'web/unsecure/base_static_url' '{{unsecure_base_url}}static/'
 #
 #echo "Setting dev/static/sign..."
 #bin/magento config:set 'dev/static/sign' 0 --lock-env
