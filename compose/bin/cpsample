@@ -4,54 +4,114 @@ help() {
   # Display Help
   echo "Prepare docker setup for project."
   echo
-  echo "Syntax: optional parameter [-m]"
+  echo "Syntax: optional parameter [-m] [-v version]"
   echo "options:"
   echo "h     Print this Help."
   echo "m     Prepare environment files for macOS."
+  echo "v     Specify Magento version for compose file (e.g., 2.3.3, 2.3.7, latest)"
   echo
 }
 
 function mac_settings() {
+  local VERSION=$1
+
   # Check if the file exists before copying
   if [ ! -f "src/app/etc/env.php" ]; then
     cp env/env.php.sample src/app/etc/env.php
   fi
   cp docker_config/compose/compose.yaml.mac.sample compose.yaml
   cp docker_config/compose/compose.dev.yaml.mac.sample compose.dev.yaml
+
+  # Copy appropriate compose.yaml based on version
+  case $VERSION in
+    2.3.3)
+      cp docker_config/compose/compose.yaml.mac.sample-version-m2.3.3 compose.yaml
+      ;;
+    2.3.7)
+      cp docker_config/compose/compose.yaml.mac.sample-version-m2.3.7 compose.yaml
+      ;;
+    latest)
+      cp docker_config/compose/compose.yaml.mac.sample compose.yaml
+      ;;
+    *)
+      echo "Invalid Magento version provided. ---------------------------------------------------------------------------"
+      exit 1
+      ;;
+  esac
+  echo "Setting up for version: $VERSION"
+
+  echo "Copying docker and magento configuration files for macOS environment"
 }
 
 function linux_settings() {
+  local VERSION=$1
+
   # Check if the file exists before copying
   if [ ! -f "src/app/etc/env.php" ]; then
     cp env/env.php.sample src/app/etc/env.php
   fi
   cp docker_config/compose/compose.yaml.sample compose.yaml
   cp docker_config/compose/compose.dev.yaml.sample compose.dev.yaml
-}
 
-parse_parameter() {
-  case $1 in
-  -h)
-    help
-    exit
-    ;;
-  -m)
-    MACSETUP=1
-    ;;
-  "") ;;
-  *)
-    echo "Error: Invalid option, use -h to get help"
-    exit
-    ;;
+  echo "Setting up for version: $VERSION"
+
+  # Copy appropriate compose.yaml based on version
+  case $VERSION in
+    2.3.3)
+      cp docker_config/compose/compose.yaml.sample-version-m2.3.3 compose.yaml
+      ;;
+    2.3.7)
+      cp docker_config/compose/compose.yaml.sample-version-m2.3.7 compose.yaml
+      ;;
+    latest)
+      cp docker_config/compose/compose.yaml.sample compose.yaml
+      ;;
+    *)
+      echo "Invalid Magento version provided. ---------------------------------------------------------------------------"
+      exit 1
+      ;;
   esac
+
+  echo "Copying docker and magento configuration files for Linux environment"
 }
 
-parse_parameter "$1"
+# Parse parameters
+while getopts ":hmv:" opt; do
+  case ${opt} in
+    h )
+      help
+      exit 0
+      ;;
+    m )
+      MACSETUP=1
+      ;;
+    v )
+      VERSION=$OPTARG
+      ;;
+    \? )
+      echo "Invalid option: $OPTARG" 1>&2
+      help
+      exit 1
+      ;;
+    : )
+      echo "Invalid option: $OPTARG requires an argument" 1>&2
+      help
+      exit 1
+      ;;
+  esac
+done
+
 
 if [ -n "$MACSETUP" ]; then
-  echo "Copying docker and magento configuration files for macOS environment"
-  mac_settings
+  if [ -n "$VERSION" ]; then
+    mac_settings "$VERSION"  # Call mac_settings function with VERSION as argument
+  else
+    mac_settings "latest"  # If version is not provided, default to "latest"
+  fi
 else
-  echo "Copying docker and magento configuration files for Linux environment"
-  linux_settings
+  if [ -n "$VERSION" ]; then
+    linux_settings "$VERSION"  # Call linux_settings function with VERSION as argument
+  else
+    linux_settings "latest"  # If version is not provided, default to "latest"
+  fi
 fi

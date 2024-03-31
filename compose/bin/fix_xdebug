@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# Define the file path
+file_path="vendor/magento/magento2-functional-testing-framework/src/Magento/FunctionalTestingFramework/_bootstrap.php"
+
+# Check if the file exists
+if ! bin/cli ls "$file_path" > /dev/null 2>&1; then
+    echo "Error: File '$file_path' not found."
+    exit 1
+fi
+
+# Define the old and new code snippets
+old_code="xdebug_disable();"
+new_code="if (function_exists('xdebug_disable')) { xdebug_disable(); }"
+
+# Perform the replacement
+bin/cli sed -i.bak "s@$old_code@$new_code@g" "$file_path"
+
+echo "Fix applied successfully."

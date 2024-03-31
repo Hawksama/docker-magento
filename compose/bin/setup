@@ -10,31 +10,35 @@ help()
    echo "options:"
    echo "h     Print this Help."
    echo "m     Prepare environment for macOS."
+   echo "v     Specify Magento version for compose file (e.g., 2.3.3, 2.3.7, latest)"
    echo
 }
 
-parse_parameter()
-{
-  case $1 in
-        -h) # display Help
-           help
-           exit;;
-        -m) # display Help
-           MACSETUP=1;;
-        -*) # Invalid option
-           echo "Error: Invalid option, use -h to get help"
-           exit;;
-     esac
-}
-
-parse_parameter $1
-SECOND_PARAM=$2
-
-if [ "$1" == -m ]; then
-    set --
-fi
-
-parse_parameter $SECOND_PARAM
+# Parse parameters
+while getopts ":hmv:" opt; do
+  case ${opt} in
+    h )
+      help
+      exit 0
+      ;;
+    m )
+      MACSETUP=1
+      ;;
+    v )
+      VERSION=$OPTARG
+      ;;
+    \? )
+      echo "Invalid option: $OPTARG" 1>&2
+      help
+      exit 1
+      ;;
+    : )
+      echo "Invalid option: $OPTARG requires an argument" 1>&2
+      help
+      exit 1
+      ;;
+  esac
+done
 
 MEM=$(docker info | grep "Total Memory" | cut -d':' -f2 | xargs | sed s/GiB//)
 # Docker reports RAM 0.2 less than what it is actually set to
@@ -55,12 +59,29 @@ source env/phpfpm.env
 
 DOMAIN=${MAGENTO_DOMAIN}
 
+
 if [ -z $MACSETUP ]; then
     echo "Preparing setup installation for Linux environment and domain" "$DOMAIN"
-    bin/cpsample
-  else
+    if [ -n "$VERSION" ]; then
+        if [ "$VERSION" == "2.3.3" ]; then
+            bin/cpsample -m -v "2.3.7"  # Execute only if version is 2.3.3
+        else
+            bin/cpsample -m -v "$VERSION"
+        fi
+    else
+      bin/cpsample
+    fi
+else
     echo "Preparing setup installation for macOS environment and domain" "$DOMAIN"
-    bin/cpsample -m
+    if [ -n "$VERSION" ]; then
+        if [ "$VERSION" == "2.3.3" ]; then
+            bin/cpsample -m -v "2.3.7"  # Execute only if version is 2.3.3
+        else
+            bin/cpsample -m -v "$VERSION"
+        fi
+    else
+      bin/cpsample -m
+    fi
 fi
 
 bin/stop
@@ -79,13 +100,17 @@ bin/clinotty composer config --no-plugins allow-plugins.laminas/laminas-dependen
 echo "Installing composer modules..."
 bin/composer install --ignore-platform-reqs
 
+
+if [ "$VERSION" == "2.3.3" ] || [ "$VERSION" == "2.3.7" ]; then
+    # Wait for user input
+    echo "Composer install completed."
+    echo "Please fix the xdebug bug by editing the vendor/magento/magento2-functional-testing-framework/src/Magento/FunctionalTestingFramework/_bootstrap.php"
+    echo "You can find the fix on: https://tinyurl.com/mrdr4jn"
+    bin/fix_xdebug
+fi
+
 echo "Checking PHPFPM for issues in nginx configuration (Issues appeared in M2.4.6-p1) where php-fpm:9000 has replaced fastcgi_backend which broke the app container"
 bin/check-requirements
-
-if [ -n "$MACSETUP" ]; then
-  echo "Copying files from container to host..."
-  bin/copyfromcontainer vendor
-fi
 
 echo "Setting bin/magento executable permissions"
 bin/clinotty chmod u+x bin/magento
@@ -99,10 +124,34 @@ bin/redis redis-cli flushall
 bin/clinotty rm -rf generated
 bin/clinotty rm -rf var/*
 
+if [ -z $MACSETUP ]; then
+    if [ -n "$VERSION" ]; then
+        if [ "$VERSION" == "2.3.3" ]; then
+            echo "Reverting docker configuration to PHP 7.3 after composer:install has finished to avoid setup:di:compile errors"
+            bin/cpsample -v "2.3.3"
+
+            bin/stop
+            bin/start --no-dev
+            [ $? != 0 ] && echo "Failed to start Docker services" && exit
+        fi
+    fi
+else
+    if [ -n "$VERSION" ]; then
+        if [ "$VERSION" == "2.3.3" ]; then
+            echo "Reverting docker configuration to PHP 7.3 after composer:install has finished to avoid setup:di:compile errors"
+            bin/cpsample -m -v "2.3.3"
+
+            bin/stop
+            bin/start --no-dev
+            [ $? != 0 ] && echo "Failed to start Docker services" && exit
+        fi
+    fi
+fi
+
 echo "Running magento app:config:import..."
 bin/clinotty bin/magento app:config:import
 
-echo "Setting up elasticsearch.. to host {$ES_HOST} and port ${ES_HOST}.."
+echo "Setting up elasticsearch.. to host ${ES_HOST} and port ${ES_HOST}.."
 bin/magento config:set catalog/search/elasticsearch7_server_hostname "${ES_HOST}" --lock-env
 bin/magento config:set catalog/search/elasticsearch7_server_port "${ES_PORT}" --lock-env
 bin/magento config:set catalog/search/engine "${ES_VERSION}" --lock-env
@@ -110,26 +159,32 @@ bin/magento config:set catalog/search/engine "${ES_VERSION}" --lock-env
 echo "Running magento set:up..."
 bin/clinotty bin/magento setup:up
 
-echo "Creating admin user {$MAGENTO_ADMIN_USER} with password {$MAGENTO_ADMIN_PASSWORD}..."
+echo "Creating admin user ${MAGENTO_ADMIN_USER} with password ${MAGENTO_ADMIN_PASSWORD}..."
 bin/clinotty bin/magento admin:user:create --admin-user="$MAGENTO_ADMIN_USER" --admin-password="$MAGENTO_ADMIN_PASSWORD" --admin-email="$MAGENTO_ADMIN_EMAIL" --admin-firstname="$MAGENTO_ADMIN_FIRST_NAME" --admin-lastname="$MAGENTO_ADMIN_LAST_NAME"
 
 echo "Forcing deploy of static content to speed up initial requests..."
 bin/clinotty bin/magento setup:static-content:deploy -f
 
 if [ -n "$MACSETUP" ]; then
-  bin/copyfromcontainer lib
-  bin/copyfromcontainer grunt-config.json.sample
-  bin/copyfromcontainer Gruntfile.js.sample
-  bin/copyfromcontainer nginx.conf.sample
-  bin/copyfromcontainer package.json.sample
+    bin/copyfromcontainer lib
+    bin/copyfromcontainer grunt-config.json.sample
+    bin/copyfromcontainer Gruntfile.js.sample
+    bin/copyfromcontainer nginx.conf.sample
+    bin/copyfromcontainer package.json.sample
 fi
 
 bin/create_phpstan_files
 
+if [ -n "$MACSETUP" ]; then
+    echo "Copying files from container to host..."
+    bin/copyfromcontainer dev
+    bin/copyfromcontainer pub/media
+fi
+
 echo "Setting basic URL and generating SSL certificate..."
 bin/setup-domain "${DOMAIN}"
 
-#echo "Re-indexing with Elasticsearch..."
+echo "Re-indexing with Elasticsearch..."
 bin/clinotty bin/magento indexer:reindex
 
 echo "Clearing the cache to apply updates..."
@@ -143,3 +198,9 @@ bin/clinotty bin/magento deploy:mode:set developer
 
 echo "Docker development environment setup complete."
 echo "You may now access your Magento instance at https://${DOMAIN}/"
+
+if [ -n "$MACSETUP" ]; then
+    echo "Copying files from container to host..."
+    bin/copyfromcontainer vendor
+    bin/copyfromcontainer generated
+fi

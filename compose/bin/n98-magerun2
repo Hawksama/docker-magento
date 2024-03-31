@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-N98_VERSION="latest"
+# shellcheck source=../env/n98-magerun.env
+source env/n98-magerun.env
+
+N98_VERSION=${N98_MAGERUN_VERSION:-"latest"}
 N98_PHAR="n98-magerun2-$N98_VERSION.phar"
 N98_PHAR_URL="https://files.magerun.net/$N98_PHAR"
 N98_SHA256_URL="https://files.magerun.net/sha256.php?file=$N98_PHAR"

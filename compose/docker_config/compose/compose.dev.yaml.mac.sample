@@ -20,7 +20,7 @@ services:
       - ./src/dbdump/:/var/www/html/dbdump:cached
       - ./src/patches:/var/www/html/patches:cached
       - ./src/dev/tools/grunt/configs:/var/www/html/dev/tools/grunt/configs:cached
-      - ./src/pub/media:/var/www/html/pub/media:cached
+      #- ./src/pub/media:/var/www/html/pub/media:cached
       #- ./src/m2-hotfixes:/var/www/html/m2-hotfixes:cached
       #- ./src/var/log:/var/www/html/var/log:cached
       #- ./src/var/report:/var/www/html/var/report:cached
