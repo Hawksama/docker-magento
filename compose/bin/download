@@ -15,32 +15,32 @@ if [ -d "./src" ]; then
   fi
 fi
 
-bin/stop
 
-bin/start --no-dev
-bin/stop sftp
-[ $? != 0 ] && echo "Failed to start Docker services" && exit
-
-bin/setup-composer-auth
-
-bin/fixowns
+echo "Downloading $EDITION version $VERSION"
 
 if [ "$EDITION" == "mageos-nightly" ]; then
-  bin/clinotty composer create-project --stability alpha --repository-url=https://upstream-nightly.mage-os.org magento/project-community-edition .
+  composer create-project --stability alpha --repository-url=https://upstream-nightly.mage-os.org magento/project-community-edition ./src
 elif [ "$EDITION" == "mageos-mirror" ] || [ "$EDITION" == "mageos" ]; then
-  bin/clinotty composer create-project --repository-url=https://mirror.mage-os.org magento/project-community-edition="${VERSION}" .
+  composer create-project --repository-url=https://mirror.mage-os.org magento/project-community-edition="${VERSION}" ./src
 elif [ "$EDITION" == "mageos-hypernode-mirror" ]; then
-  bin/clinotty composer create-project --repository-url=https://mage-os.hypernode.com/mirror magento/project-community-edition="${VERSION}" .
+  composer create-project --repository-url=https://mage-os.hypernode.com/mirror magento/project-community-edition="${VERSION}" ./src
 elif [ "$EDITION" == "mageos-maxcluster-mirror" ]; then
-  bin/clinotty composer create-project --repository-url=https://mage-os.maxcluster.net/mirror magento/project-community-edition="${VERSION}" .
+  composer create-project --repository-url=https://mage-os.maxcluster.net/mirror magento/project-community-edition="${VERSION}" ./src
 else
-  bin/clinotty composer create-project --repository=https://repo.magento.com/ magento/project-"${EDITION}"-edition="${VERSION}" .
+  composer create-project --repository=https://repo.magento.com/ magento/project-"${EDITION}"-edition="${VERSION}" ./src
 fi
 
-if [ $? != 0 ]; then
-    echo -e "${BLUE}Please check the installation guide at ${YELLOW}https://github.com/markshust/docker-magento#install-fails-because-project-directory-is-not-empty${BLUE} for troubleshooting.${NC}"
-else
-    bin/clinotty [ ! -f "./var/composer_home/auth.json" ] && bin/clinotty mkdir -p ./var/composer_home && bin/clinotty cp /var/www/.composer/auth.json ./var/composer_home/auth.json
-fi
+#if [ $? != 0 ]; then
+#    echo -e "${BLUE}Please check the installation guide at ${YELLOW}https://github.com/markshust/docker-magento#install-fails-because-project-directory-is-not-empty${BLUE} for troubleshooting.${NC}"
+#else
+#    bin/clinotty [ ! -f "./var/composer_home/auth.json" ] && bin/clinotty mkdir -p ./var/composer_home && bin/clinotty cp /var/www/.composer/auth.json ./var/composer_home/auth.json
+#fi
 
-bin/start --no-dev sftp
+# Remove the directories to avoid copying unnecessary files during docker build
+rm -rf src/vendor
+rm -rf src/app
+
+#
+#bin/setup -m -v 2.4.6-php8.1 -n
+
+echo "Done!"

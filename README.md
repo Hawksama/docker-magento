@@ -166,7 +166,7 @@ cd $_
 curl -s https://raw.githubusercontent.com/Hawksama/docker-magento/master/lib/template | bash
 
 # Download the version of Magento you want to use with:
-bin/download 2.4.6-p3 community
+bin/download 2.4.6-p6 community
 # You can specify the version and type (community, enterprise, mageos, mageos-nightly, mageos-mirror, mageos-hypernode-mirror, or mageos-maxcluster-mirror).
 # The mageos type is an alias for mageos-mirror.
 # If no arguments are passed, "2.4.6-p3" and "community" are the default values used.
@@ -190,7 +190,7 @@ bin/download 2.4.6-p3 community
 #  --search-engine=elasticsearch7 \
 
 # Run the setup installer for Magento:
-bin/setup magento.test
+bin/setup -m -v 2.4.6-php8.1 -n # -m : For MacOs | -v : Magento version | -n : new project without database
 
 open https://magento.test
 ```

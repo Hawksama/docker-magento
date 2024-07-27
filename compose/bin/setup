@@ -1,43 +1,49 @@
 #!/usr/bin/env bash
 set -o errexit
 
-help()
-{
-   # Display Help
-   echo "Prepare docker setup for project."
-   echo
-   echo "Syntax: [domain (optional parameter, by default www.magento.local)] [-m]"
-   echo "options:"
-   echo "h     Print this Help."
-   echo "m     Prepare environment for macOS."
-   echo "v     Specify Magento version for compose file (e.g., 2.3.3, 2.3.7, latest)"
-   echo
+help() {
+    # Display Help
+    echo "Prepare docker setup for project."
+    echo
+    echo "Syntax: [domain (optional parameter, by default www.magento.local)] [-m] [-n]"
+    echo "options:"
+    echo "h     Print this Help."
+    echo "m     Prepare environment for macOS."
+    echo "n     Perform a new setup after using bin/download to initialize ./src with a new Magento project."
+    echo "v     Specify Magento version for compose file (e.g., 2.3.3, 2.3.7, 2.4.6-php8.1, latest)"
+    echo
 }
 
 # Parse parameters
-while getopts ":hmv:" opt; do
-  case ${opt} in
-    h )
-      help
-      exit 0
-      ;;
-    m )
-      MACSETUP=1
-      ;;
-    v )
-      VERSION=$OPTARG
-      ;;
-    \? )
-      echo "Invalid option: $OPTARG" 1>&2
-      help
-      exit 1
-      ;;
-    : )
-      echo "Invalid option: $OPTARG requires an argument" 1>&2
-      help
-      exit 1
-      ;;
-  esac
+while getopts ":hmnv:" opt; do
+    case ${opt} in
+        h )
+            help
+            exit 0
+            ;;
+        m )
+            MACSETUP=1
+            echo "Parameter -m detected"
+            ;;
+        n )
+            NEWSETUP=1
+            echo "Parameter -n detected"
+            ;;
+        v )
+            VERSION=$OPTARG
+            echo "Parameter -v detected with value $VERSION"
+            ;;
+        \? )
+            echo "Invalid option: $OPTARG" 1>&2
+            help
+            exit 1
+            ;;
+        : )
+            echo "Invalid option: $OPTARG requires an argument" 1>&2
+            help
+            exit 1
+            ;;
+    esac
 done
 
 MEM=$(docker info | grep "Total Memory" | cut -d':' -f2 | xargs | sed s/GiB//)
@@ -59,14 +65,13 @@ source env/phpfpm.env
 
 DOMAIN=${MAGENTO_DOMAIN}
 
-
 if [ -z $MACSETUP ]; then
     echo "Preparing setup installation for Linux environment and domain" "$DOMAIN"
     if [ -n "$VERSION" ]; then
         if [ "$VERSION" == "2.3.3" ]; then
-            bin/cpsample -m -v "2.3.7"  # Execute only if version is 2.3.3
+            bin/cpsample -v "2.3.7"  # Execute only if version is 2.3.3
         else
-            bin/cpsample -m -v "$VERSION"
+            bin/cpsample -v "$VERSION"
         fi
     else
       bin/cpsample
@@ -115,9 +120,15 @@ bin/check-requirements
 echo "Setting bin/magento executable permissions"
 bin/clinotty chmod u+x bin/magento
 
-echo "Importing database..."
-bin/cli mysql -h"db" -u"magento" -p"magento" --execute="DROP DATABASE magento; CREATE DATABASE magento;"
-bin/mysqlimport
+
+if [ -n "$NEWSETUP" ]; then
+    echo "Performing a new setup from scratch for domain" "$DOMAIN"
+    bin/setup-install
+else
+    echo "Importing database..."
+    bin/cli mysql -h"db" -u"magento" -p"magento" --execute="DROP DATABASE magento; CREATE DATABASE magento;"
+    bin/mysqlimport
+fi
 
 echo "Cleaning redis cache and generated files..."
 bin/redis redis-cli flushall
@@ -179,6 +190,15 @@ if [ -n "$MACSETUP" ]; then
     echo "Copying files from container to host..."
     bin/copyfromcontainer dev
     bin/copyfromcontainer pub/media
+fi
+
+if [ -n "$NEWSETUP" ]; then
+    echo "Copying app folder from container to host..."
+    bin/copyfromcontainer app
+
+    bin/clinotty cp auth.json.sample auth.json
+    bin/copyfromcontainer auth.json
+    mkdir src/dbdump
 fi
 
 echo "Setting basic URL and generating SSL certificate..."

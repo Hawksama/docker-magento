@@ -8,7 +8,7 @@ help() {
   echo "options:"
   echo "h     Print this Help."
   echo "m     Prepare environment files for macOS."
-  echo "v     Specify Magento version for compose file (e.g., 2.3.3, 2.3.7, latest)"
+  echo "v     Specify Magento version for compose file (e.g., 2.3.3, 2.3.7, 2.4.6-php8.1, latest)"
   echo
 }
 
@@ -29,6 +29,9 @@ function mac_settings() {
       ;;
     2.3.7)
       cp docker_config/compose/compose.yaml.mac.sample-version-m2.3.7 compose.yaml
+      ;;
+    2.4.6-php8.1)
+      cp docker_config/compose/compose.yaml.mac.sample-version-m2.4.6-php8.1 compose.yaml
       ;;
     latest)
       cp docker_config/compose/compose.yaml.mac.sample compose.yaml
@@ -62,6 +65,9 @@ function linux_settings() {
       ;;
     2.3.7)
       cp docker_config/compose/compose.yaml.sample-version-m2.3.7 compose.yaml
+      ;;
+    2.4.6-php8.1)
+      cp docker_config/compose/compose.yaml.sample-version-m2.4.6-php8.1 compose.yaml
       ;;
     latest)
       cp docker_config/compose/compose.yaml.sample compose.yaml
