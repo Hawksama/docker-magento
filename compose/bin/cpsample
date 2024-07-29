@@ -30,6 +30,9 @@ function mac_settings() {
     2.3.7)
       cp docker_config/compose/compose.yaml.mac.sample-version-m2.3.7 compose.yaml
       ;;
+    2.4.6)
+      cp docker_config/compose/compose.yaml.mac.sample-version-m2.4.6 compose.yaml
+      ;;
     2.4.6-php8.1)
       cp docker_config/compose/compose.yaml.mac.sample-version-m2.4.6-php8.1 compose.yaml
       ;;
@@ -65,6 +68,9 @@ function linux_settings() {
       ;;
     2.3.7)
       cp docker_config/compose/compose.yaml.sample-version-m2.3.7 compose.yaml
+      ;;
+    2.4.6)
+      cp docker_config/compose/compose.yaml.mac.sample-version-m2.4.6 compose.yaml
       ;;
     2.4.6-php8.1)
       cp docker_config/compose/compose.yaml.sample-version-m2.4.6-php8.1 compose.yaml
