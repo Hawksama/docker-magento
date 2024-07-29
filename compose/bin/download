@@ -41,6 +41,6 @@ rm -rf src/vendor
 rm -rf src/app
 
 #
-#bin/setup -m -v 2.4.6-php8.1 -n
+#bin/setup -m -v 2.4.6 -n
 
 echo "Done!"
