@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
-bin/clinotty vendor/bin/phpcs --standard=Magento2 --exclude=Magento2.CodeAnalysis.EmptyBlock \
---extensions=php,phtml --error-severity=10 --ignore-annotations \
- "$@"
 
-# You can use --ignore=$PATH to ignore various files from checking their code standard
+# Check if phpcs.xml exists
+if bin/cliq ls phpcs.xml ; then
+    echo "running phpcs.xml"
+    # Use phpcs.xml if it exists
+    bin/clinotty vendor/bin/phpcs --standard=phpcs.xml "$@"
+else
+    echo "running original settings"
+    # Use the original rules if phpcs.xml does not exist
+    bin/clinotty vendor/bin/phpcs --standard=Magento2 --exclude=Magento2.CodeAnalysis.EmptyBlock \
+    --extensions=php,phtml --error-severity=10 --ignore-annotations \
+    "$@"
+fi

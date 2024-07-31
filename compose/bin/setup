@@ -94,6 +94,12 @@ bin/stop
 bin/start --no-dev
 [ $? != 0 ] && echo "Failed to start Docker services" && exit
 
+# Call the check_broken_symlinks script
+bin/check_broken_symlinks.sh
+# Check the exit status of the check_broken_symlinks script
+[ $? -ne 0 ] echo "Aborting script due to broken symlinks." exit 1
+
+
 echo "Copying project files to container..."
 bin/copytocontainer --all
 
@@ -162,10 +168,31 @@ fi
 echo "Running magento app:config:import..."
 bin/clinotty bin/magento app:config:import
 
-echo "Setting up elasticsearch.. to host ${ES_HOST} and port ${ES_HOST}.."
-bin/magento config:set catalog/search/elasticsearch7_server_hostname "${ES_HOST}" --lock-env
-bin/magento config:set catalog/search/elasticsearch7_server_port "${ES_PORT}" --lock-env
-bin/magento config:set catalog/search/engine "${ES_VERSION}" --lock-env
+# Ask user to choose between Elasticsearch and ElasticSuite
+echo "Choose the search engine to configure:"
+echo "1) Elasticsearch"
+echo "2) ElasticSuite"
+read -p "Enter the number of your choice: " search_engine_choice
+
+if [ "$search_engine_choice" == "1" ]; then
+    echo "Setting up Elasticsearch.. to host ${ES_HOST} and port ${ES_PORT}.."
+    bin/magento config:set catalog/search/elasticsearch7_server_hostname "${ES_HOST}" --lock-env
+    bin/magento config:set catalog/search/elasticsearch7_server_port "${ES_PORT}" --lock-env
+    bin/magento config:set catalog/search/engine "${ES_VERSION}" --lock-env
+    echo "Elasticsearch configuration completed."
+elif [ "$search_engine_choice" == "2" ]; then
+    echo "Setting up ElasticSuite..."
+    bin/magento config:set smile_elasticsuite_core_base_settings/es_client/servers "${ES_VERSION}:${ES_PORT}" --lock-env
+    bin/magento config:set smile_elasticsuite_core_base_settings/enable_https_mode '0' --lock-env
+    bin/magento config:set smile_elasticsuite_core_base_settings/enable_http_auth '0' --lock-env
+    bin/magento config:set smile_elasticsuite_core_base_settings/http_auth_user '' --lock-env
+    bin/magento config:set smile_elasticsuite_core_base_settings/http_auth_pwd '' --lock-env
+    bin/magento config:set catalog/search/engine "${ELASTICSUITE}" --lock-env
+    echo "ElasticSuite configuration completed."
+else
+    echo "Invalid choice. Exiting."
+    exit 1
+fi
 
 echo "Running magento set:up..."
 bin/clinotty bin/magento setup:up
@@ -204,7 +231,7 @@ fi
 echo "Setting basic URL and generating SSL certificate..."
 bin/setup-domain "${DOMAIN}"
 
-echo "Re-indexing with Elasticsearch..."
+echo "Re-indexing with selected search engine..."
 bin/clinotty bin/magento indexer:reindex
 
 echo "Clearing the cache to apply updates..."

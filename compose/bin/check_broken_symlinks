@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+# Get the absolute path of the src folder
+REAL_SRC=$(cd -P "src" && pwd)
+
+echo "Checking for broken symlinks in $REAL_SRC..."
+
+# Initialize a flag to track if broken symlinks are found
+broken_symlinks_found=0
+
+# Find all symlinks in the src folder and check if they are broken
+find "$REAL_SRC" -type l | while read -r symlink; do
+    if [ ! -e "$symlink" ]; then
+        echo "Broken symlink found: $symlink"
+        broken_symlinks_found=1
+    fi
+done
+
+# Check the flag and exit with an error code if broken symlinks are found
+if [ $broken_symlinks_found -eq 1 ]; then
+    echo "Error: Broken symlinks detected."
+    exit 1
+else
+    echo "No broken symlinks found."
+    exit 0
+fi
