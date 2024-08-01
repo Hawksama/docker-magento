@@ -1,17 +1,57 @@
 #!/usr/bin/env bash
 
-if [ -z "$1" ]; then
-  path="$(bin/cli find dbdump -iregex '.*\.\(sql\|gz\)' | head -n1)"
-  [ -z "$PATH" ] && echo "There is no *.sql or *gz files in dbdump directory" && exit
-  extension="${path##*.}"
-  if [ $extension = gz ]; then
-    echo "bin/n98-magerun2 -v db:import -c gz $path...."
-    bin/n98-magerun2 -v db:import -c gz $path
-  else
-    echo "bin/n98-magerun2 -v db:import $path...."
-    bin/n98-magerun2 -v db:import $path
+# Function to fix the SQL file by replacing the problematic collation
+fix_sql_file() {
+  original_file="$1"
+  fixed_file="${original_file%.sql}_fixed.sql"
+
+  cp "$original_file" "$fixed_file"
+  sed -i 's/utf8mb4_0900_ai_ci/utf8mb4_general_ci/g' "$fixed_file"
+
+  echo "$fixed_file"
+}
+
+# List all SQL and GZ files in the dbdump directory and let the user select one
+select_file() {
+  files=$(bin/cli find dbdump -iregex '.*\.\(sql\|gz\)')
+  if [ -z "$files" ]; then
+    echo "There are no *.sql or *.gz files in the dbdump directory"
+    exit 1
   fi
+
+  select file in $files; do
+    if [ -n "$file" ]; then
+      echo "$file"
+      return
+    else
+      echo "Invalid selection. Please try again."
+      exit 1
+    fi
+  done
+}
+
+echo "Please select a file to import:"
+# Main script
+if [ -z "$1" ]; then
+  path=$(select_file)
 else
-  echo "bin/n98-magerun2 -v db:import "$1" ...."
-  bin/n98-magerun2 -v db:import "$1"
+  path="$1"
 fi
+
+extension="${path##*.}"
+
+import_sql_file() {
+  local file="$1"
+  if [ "$extension" = "gz" ]; then
+    echo "Importing $file as a gzipped SQL file..."
+    bin/n98-magerun2 -v db:import -c gz "$file"
+  else
+    echo "Importing $file as an SQL file..."
+    bin/n98-magerun2 -v db:import "$file"
+  fi
+}
+
+echo "Selected file: $path"
+
+# Try to import the selected file and capture any errors
+import_sql_file "$path" 2>&1

@@ -65,6 +65,8 @@ source env/phpfpm.env
 
 DOMAIN=${MAGENTO_DOMAIN}
 
+bin/stopall
+
 if [ -z $MACSETUP ]; then
     echo "Preparing setup installation for Linux environment and domain" "$DOMAIN"
     if [ -n "$VERSION" ]; then
@@ -89,16 +91,13 @@ else
     fi
 fi
 
-bin/stop
-
 bin/start --no-dev
+# Check the exit status of the start script
 [ $? != 0 ] && echo "Failed to start Docker services" && exit
 
-# Call the check_broken_symlinks script
-bin/check_broken_symlinks.sh
+bin/check_broken_symlinks
 # Check the exit status of the check_broken_symlinks script
-[ $? -ne 0 ] echo "Aborting script due to broken symlinks." exit 1
-
+[ $? != 0 ] && echo "Aborting script due to broken symlinks." && exit 1
 
 echo "Copying project files to container..."
 bin/copytocontainer --all

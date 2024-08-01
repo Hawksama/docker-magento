@@ -2,6 +2,8 @@
 
 nginx_conf_sample="nginx.conf.sample"
 replacement_value="fastcgi_backend"
+sample_files_dir="sample-files"
+src_dir="src"
 
 # Check if nginx.conf.sample exists in the container
 if bin/clinotty test -e "$nginx_conf_sample"; then
@@ -15,5 +17,19 @@ if bin/clinotty test -e "$nginx_conf_sample"; then
         echo "No action needed in docker container: $nginx_conf_sample already contains $replacement_value"
     fi
 else
-    echo "Error: $nginx_conf_sample not found in the container!"
+    echo "Warning: $nginx_conf_sample not found in the container! - attempting to build it from sample-files/nginx.conf.sample"
+
+    # Check if the sample file exists in the sample-files directory
+    if [ -e "$sample_files_dir/$nginx_conf_sample" ]; then
+        # Copy the sample file to the src directory
+        cp "$sample_files_dir/$nginx_conf_sample" "$src_dir/$nginx_conf_sample"
+
+        # Upload the file to the docker container
+        bin/copytocontainer "$nginx_conf_sample"
+
+        echo "Uploaded $nginx_conf_sample to the docker container from $sample_files_dir/$nginx_conf_sample"
+    else
+        echo "Error: $sample_files_dir/$nginx_conf_sample not found! Cannot build $nginx_conf_sample."
+        exit 1
+    fi
 fi
