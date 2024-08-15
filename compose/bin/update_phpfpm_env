@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+# Determine the directory of the script
+SCRIPT_DIR=$(dirname "$0")
+
+# Path to the env file relative to the script's location
+ENV_FILE="$SCRIPT_DIR/../env/phpfpm.env"
+
+# Get the current folder name
+CURRENT_DIR=$(basename "$PWD")
+
+# Check if the env file exists
+if [ -f "$ENV_FILE" ]; then
+    # Read current values from the env file
+    MAGENTO_DOMAIN=$(grep -E '^MAGENTO_DOMAIN=' "$ENV_FILE" | cut -d '=' -f 2 | tr -d \')
+    XDEBUG_SERVER_NAME=$(grep -E '^XDEBUG_SERVER_NAME=' "$ENV_FILE" | cut -d '=' -f 2 | tr -d \')
+
+    # Flag to track if any update was made
+    UPDATED=false
+
+    # If MAGENTO_DOMAIN is set to its default value, update it
+    if [ "$MAGENTO_DOMAIN" == "www.magento.local" ]; then
+        NEW_DOMAIN="www.${CURRENT_DIR}.local"
+        sed -i '' "s/^MAGENTO_DOMAIN=.*/MAGENTO_DOMAIN=${NEW_DOMAIN}/" "$ENV_FILE"
+        echo "Updated MAGENTO_DOMAIN to $NEW_DOMAIN in $ENV_FILE"
+        UPDATED=true
+    fi
+
+    # If XDEBUG_SERVER_NAME is set to its default value, update it
+    if [ "$XDEBUG_SERVER_NAME" == "magento.local" ]; then
+        NEW_SERVER_NAME="${CURRENT_DIR}.local"
+        sed -i '' "s/^XDEBUG_SERVER_NAME=.*/XDEBUG_SERVER_NAME='${NEW_SERVER_NAME}'/" "$ENV_FILE"
+        echo "Updated XDEBUG_SERVER_NAME to $NEW_SERVER_NAME in $ENV_FILE"
+        UPDATED=true
+    fi
+
+    # If no updates were made
+    if [ "$UPDATED" = false ]; then
+        echo "MAGENTO_DOMAIN and XDEBUG_SERVER_NAME are already customized. File path is $ENV_FILE"
+    fi
+else
+    echo "$ENV_FILE not found!"
+    exit 1
+fi
