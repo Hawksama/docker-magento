@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+
+# Load environment variables from db.env
+source env/db.env
+
+# Function to display help information
+show_help() {
+  echo "Usage: $0 [-h]"
+  echo ""
+  echo "This script performs the following operations:"
+  echo "1. Selects a SQL or GZ file from the dbdump directory if not provided."
+  echo "2. Fixes collation issues by replacing problematic collations in the SQL file."
+  echo "3. Creates a new database with a timestamped name and grants privileges to the MySQL user."
+  echo "4. Moves all tables from the old database to the newly created database."
+  echo "5. Imports the SQL file into the new database."
+  echo "6. Transfers selected tables from the old database to the new one based on selected categories."
+  echo ""
+  echo "Important: This script assumes that the 'bin/n98-magerun2' tool will automatically install"
+  echo "the SQL file into a database named 'magento'. To accommodate this, the script first moves"
+  echo "the existing database (to make room for the new installation) and then restores specific"
+  echo "tables, like 'core_config_data', from the previous database into the newly installed one."
+  echo ""
+  echo "Options:"
+  echo "  -h              Show this help message and exit"
+}
+
+# Function to generate a human-readable timestamp for naming the new database
+generate_timestamp() {
+  date +"%B_%d_%Y_%I_%S%p"  # Example: August_13_2024_11_45AM
+}
+
+# Function to select a SQL or GZ file from the dbdump directory
+select_file() {
+  files=$(bin/cli find dbdump -iregex '.*\.\(sql\|gz\)')
+  if [ -z "$files" ]; then
+    echo "There are no *.sql or *.gz files in the dbdump directory"
+    exit 1
+  fi
+
+  select file in $files; do
+    if [ -n "$file" ]; then
+      echo "$file"
+      return
+    else
+      echo "Invalid selection. Please try again."
+      exit 1
+    fi
+  done
+}
+
+# Function to fix the SQL file by replacing the problematic collation
+fix_sql_file() {
+  local original_file="$1"
+  local fixed_file="${original_file%.sql}_fixed.sql"
+
+  bin/cli mv "$original_file" "$fixed_file"
+  bin/cli sed -i 's/utf8mb4_0900_ai_ci/utf8mb4_general_ci/g' "$fixed_file"
+
+  echo "$fixed_file"
+}
+
+# Function to handle archive files (unarchive if needed)
+unarchive_file() {
+  local file="$1"
+  local extension="${file##*.}"
+
+  if [ "$extension" = "gz" ]; then
+    local unzipped_file="${file%.gz}"
+    bin/cli gunzip -dv "$file"
+    echo "$unzipped_file"
+  else
+    echo "$file"
+  fi
+}
+
+# Function to create a new database and grant privileges
+create_new_database() {
+  local old_db_name="$MYSQL_DATABASE"
+  local timestamp="$1"
+  local new_db_name="${old_db_name}_${timestamp}"
+
+  echo "Creating new database '$new_db_name'..."
+
+  # Create the new database
+  bin/cli mysqladmin -h"${MYSQL_HOST}" -uroot -p"${MYSQL_ROOT_PASSWORD}" create "${new_db_name}"
+
+  # Grant privileges to the ${MYSQL_USER} for the new database
+  bin/cli mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -h"${MYSQL_HOST}" -e "GRANT ALL PRIVILEGES ON ${new_db_name}.* TO '${MYSQL_USER}'@'%'; FLUSH PRIVILEGES;"
+}
+
+# Function to move all tables from the old database to the new one with progress
+copy_tables_to_new_database() {
+  local old_db_name="$1"
+  local timestamp="$2"
+  local new_db_name="${old_db_name}_${timestamp}"
+
+  echo "Moving tables from '$old_db_name' to '$new_db_name'..."
+
+  tables=$(bin/cli mysql -h"${MYSQL_HOST}" -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "SHOW TABLES IN ${old_db_name};" | tail -n +2)
+  total_tables=$(echo "$tables" | wc -l)
+  copied_tables=0
+
+  for table in $tables; do
+    bin/cli mysql -h"${MYSQL_HOST}" -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE TABLE ${new_db_name}.${table} LIKE ${old_db_name}.${table};"
+    bin/cli mysql -h"${MYSQL_HOST}" -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "INSERT INTO ${new_db_name}.${table} SELECT * FROM ${old_db_name}.${table};"
+    copied_tables=$((copied_tables + 1))
+
+    # Update the progress on the same line
+    printf "\rCopied %d/%d tables. Remaining: %d..." "$copied_tables" "$total_tables" "$((total_tables - copied_tables))"
+  done
+
+  echo -e "\nTables moved successfully to '$new_db_name'."
+}
+
+# Function to import a SQL file into the new database
+import_sql_file() {
+  local file="$1"
+  echo "Using file: $file"
+
+  # Unarchive if needed and fix collation
+  local unarchived_file
+  unarchived_file=$(unarchive_file "$file")
+  local fixed_file
+  fixed_file=$(fix_sql_file "$unarchived_file")
+
+  echo "Importing $fixed_file into the new database..."
+  bin/n98-magerun2 -v db:import "$fixed_file"
+}
+
+# Function to transfer selected tables from the old database to the new one based on categories
+transfer_selected_tables() {
+  local old_db_name="$1"
+  local timestamp="$2"
+  local new_db_name="${old_db_name}_${timestamp}"
+
+  declare -A categories=(
+    ["Core Tables"]="core_config_data admin_user admin_password"
+    ["Catalog Tables"]="catalog_product_entity catalog_category_entity cataloginventory_stock_item"
+    ["Sales Tables"]="sales_order sales_order_item sales_order_grid"
+    ["Customer Tables"]="customer_entity customer_address_entity"
+  )
+
+  local selected_categories=()
+
+  echo "Please select categories to transfer (you can select multiple categories, separate by spaces):"
+  select category in "${!categories[@]}"; do
+    if [[ -n "$category" ]]; then
+      selected_categories+=("$category")
+      echo "You selected: ${selected_categories[*]}"
+      break
+    else
+      echo "Invalid selection. Please try again."
+    fi
+  done
+
+  for category in "${selected_categories[@]}"; do
+    echo "Transferring tables from category: $category"
+    for table in ${categories[$category]}; do
+      echo "Transferring table: $table"
+      bin/cli mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -h"${MYSQL_HOST}" \
+        -e "REPLACE INTO ${new_db_name}.${table} SELECT * FROM ${old_db_name}.${table};"
+    done
+  done
+
+  echo "Selected tables transferred successfully to '${new_db_name}'."
+}
+
+# Main script execution
+if [[ "$1" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
+echo "Please select a file to import:"
+if [ -z "$1" ]; then
+  path=$(select_file)
+else
+  path="$1"
+fi
+
+# Generate the timestamp only once
+timestamp=$(generate_timestamp)
+
+# Create the new database and grant privileges
+create_new_database "$timestamp"
+
+# Move tables from the old database to the new one with progress indicator
+copy_tables_to_new_database "${MYSQL_DATABASE}" "$timestamp"
+
+# Import the selected SQL file into the newly created database
+import_sql_file "$path"
+
+# Allow user to select categories and transfer corresponding tables
+transfer_selected_tables "${MYSQL_DATABASE}" "$timestamp"
+
+echo "Database update complete."
