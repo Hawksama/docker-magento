@@ -5,6 +5,11 @@ MEM=$(docker info | grep "Total Memory" | cut -d':' -f2 | xargs | sed s/GiB//)
 # Docker reports RAM 0.2 less than what it is actually set to
 (( $(echo "$MEM < 5.7" | bc -l) )) && echo "There must be at least 6GB of RAM allocated to Docker to continue." && exit
 
+# If no arguments are passed, run bin/stopall
+if [ $# -eq 0 ]; then
+  bin/stopall
+fi
+
 if [ "$1" == "--no-dev" ]; then
   bin/docker-compose --no-dev up -d --remove-orphans "${@:2}"
   exit $?
@@ -56,8 +61,6 @@ done
 
 # Wait to exit until all missing files have been outputted to the user
 [ $IS_VALID = false ] && echo "Failed to start docker for missing volume files" && exit
-
-bin/stopall
 
 bin/docker-compose up -d --remove-orphans "$@"
 
