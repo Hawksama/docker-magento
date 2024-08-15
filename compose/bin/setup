@@ -119,7 +119,6 @@ if [ "$VERSION" == "2.3.3" ] || [ "$VERSION" == "2.3.7" ]; then
     bin/fix_xdebug
 fi
 
-echo "Checking PHPFPM for issues in nginx configuration (Issues appeared in M2.4.6-p1) where php-fpm:9000 has replaced fastcgi_backend which broke the app container"
 bin/check-requirements
 
 echo "Setting bin/magento executable permissions"
@@ -178,15 +177,17 @@ if [ "$search_engine_choice" == "1" ]; then
     bin/magento config:set catalog/search/elasticsearch7_server_hostname "${ES_HOST}" --lock-env
     bin/magento config:set catalog/search/elasticsearch7_server_port "${ES_PORT}" --lock-env
     bin/magento config:set catalog/search/engine "${ES_VERSION}" --lock-env
+    bin/clinotty bin/magento app:config:import
     echo "Elasticsearch configuration completed."
 elif [ "$search_engine_choice" == "2" ]; then
     echo "Setting up ElasticSuite..."
-    bin/magento config:set smile_elasticsuite_core_base_settings/es_client/servers "${ES_VERSION}:${ES_PORT}" --lock-env
-    bin/magento config:set smile_elasticsuite_core_base_settings/enable_https_mode '0' --lock-env
-    bin/magento config:set smile_elasticsuite_core_base_settings/enable_http_auth '0' --lock-env
-    bin/magento config:set smile_elasticsuite_core_base_settings/http_auth_user '' --lock-env
-    bin/magento config:set smile_elasticsuite_core_base_settings/http_auth_pwd '' --lock-env
+    bin/magento config:set smile_elasticsuite_core_base_settings/es_client/servers "${ES_HOST}:${ES_PORT}" --lock-env
+    bin/magento config:set smile_elasticsuite_core_base_settings/es_client/enable_https_mode '0' --lock-env
+    bin/magento config:set smile_elasticsuite_core_base_settings/es_client/enable_http_auth '0' --lock-env
+    bin/magento config:set smile_elasticsuite_core_base_settings/es_client/http_auth_user '' --lock-env
+    bin/magento config:set smile_elasticsuite_core_base_settings/es_client/http_auth_pwd '' --lock-env
     bin/magento config:set catalog/search/engine "${ELASTICSUITE}" --lock-env
+    bin/clinotty bin/magento app:config:import
     echo "ElasticSuite configuration completed."
 else
     echo "Invalid choice. Exiting."
