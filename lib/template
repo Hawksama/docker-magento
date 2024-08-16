@@ -5,8 +5,6 @@ git remote add origin https://github.com/Hawksama/docker-magento
 git fetch origin -qqq
 git checkout origin/master -- compose
 mv compose/* ./
-mv compose/.gitignore ./
-mv compose/.vscode ./
 rm -rf compose .git
 
 # Ensure these are created so Docker doesn't create them as root
