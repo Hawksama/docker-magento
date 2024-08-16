@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+# Define text formatting
+bold=$(tput bold)
+normal=$(tput sgr0)
+green=$(tput setaf 2)
+yellow=$(tput setaf 3)
+red=$(tput setaf 1)
+blue=$(tput setaf 4)
+
 # Function to fix the SQL file by replacing the problematic collation
 fix_sql_file() {
   original_file="$1"
@@ -11,47 +19,62 @@ fix_sql_file() {
   echo "$fixed_file"
 }
 
-# List all SQL and GZ files in the dbdump directory and let the user select one
+# Function to select a file if there are multiple, or return the single file if only one exists
 select_file() {
   files=$(bin/cli find dbdump -iregex '.*\.\(sql\|gz\)')
-  if [ -z "$files" ]; then
-    echo "There are no *.sql or *.gz files in the dbdump directory"
-    exit 1
-  fi
+  file_count=$(echo "$files" | wc -w)
 
-  select file in $files; do
-    if [ -n "$file" ]; then
-      echo "$file"
-      return
-    else
-      echo "Invalid selection. Please try again."
-      exit 1
-    fi
-  done
+  if [ "$file_count" -eq 0 ]; then
+    echo "${red}${bold}Error:${normal} There are no *.sql or *.gz files in the dbdump directory."
+    exit 1
+  elif [ "$file_count" -eq 1 ]; then
+    echo "$files"  # Return the single file
+  else
+    select file in $files; do
+      if [ -n "$file" ]; then
+        echo "$file"
+        return
+      else
+        echo "${red}${bold}Invalid selection. Please try again.${normal}"
+        exit 1
+      fi
+    done
+  fi
 }
 
-echo "Please select a file to import:"
-# Main script
-if [ -z "$1" ]; then
-  path=$(select_file)
-else
-  path="$1"
-fi
-
-extension="${path##*.}"
-
+# Function to import the selected SQL file
 import_sql_file() {
   local file="$1"
   if [ "$extension" = "gz" ]; then
-    echo "Importing $file as a gzipped SQL file..."
+    echo "${blue}${bold}Importing${normal} $file as a gzipped SQL file..."
     bin/n98-magerun2 -v db:import -c gz "$file"
   else
-    echo "Importing $file as an SQL file..."
+    echo "${blue}${bold}Importing${normal} $file as an SQL file..."
     bin/n98-magerun2 -v db:import "$file"
   fi
 }
 
-echo "Selected file: $path"
+# Main script
+echo "${blue}${bold}Starting database import script...${normal}"
+
+if [ -z "$1" ]; then
+  path=$(select_file)
+else
+  path="$1"
+  echo "${yellow}${bold}File provided as argument:${normal} $path"
+fi
+
+extension="${path##*.}"
+
+echo "${blue}${bold}Selected file:${normal} $path"
 
 # Try to import the selected file and capture any errors
 import_sql_file "$path" 2>&1
+
+# Check the exit status of the import command
+if [ $? -eq 0 ]; then
+  echo "${green}${bold}Import completed successfully.${normal}"
+else
+  echo "${red}${bold}Error:${normal} Import failed. Please check the output above for details."
+  exit 1
+fi

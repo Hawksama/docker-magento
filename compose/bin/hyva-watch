@@ -1,20 +1,28 @@
 #!/usr/bin/env bash
 
+# Define text formatting
+bold=$(tput bold)
+normal=$(tput sgr0)
+green=$(tput setaf 2)
+yellow=$(tput setaf 3)
+red=$(tput setaf 1)
+blue=$(tput setaf 4)
+
 # Function to update HYVA_THEME_PATH in env/theme.env
 update_theme_path() {
   local theme_path=$1
   if grep -q '^HYVA_THEME_PATH=' env/theme.env; then
     local current_path=$(grep '^HYVA_THEME_PATH=' env/theme.env | cut -d'=' -f2)
     if [ "$current_path" == "$theme_path" ]; then
-      echo "HYVA_THEME_PATH is already set to ${theme_path}. No update needed."
+      echo "${yellow}HYVA_THEME_PATH is already set to ${theme_path}. No update needed.${normal}"
       return
     else
-      sed -i.bak "s|^HYVA_THEME_PATH=.*|HYVA_THEME_PATH=${theme_path}|" env/theme.env
-      echo "HYVA_THEME_PATH updated to ${theme_path} in env/theme.env"
+      sed -i '' "s|^HYVA_THEME_PATH=.*|HYVA_THEME_PATH=${theme_path}|" env/theme.env
+      echo "${green}HYVA_THEME_PATH updated to ${theme_path} in env/theme.env${normal}"
     fi
   else
     echo "HYVA_THEME_PATH=${theme_path}" >> env/theme.env
-    echo "HYVA_THEME_PATH set to ${theme_path} in env/theme.env"
+    echo "${green}HYVA_THEME_PATH set to ${theme_path} in env/theme.env${normal}"
   fi
 }
 
@@ -35,7 +43,7 @@ if grep -q "^HYVA_THEME_PATH=${PLACEHOLDER_PATH}" env/theme.env; then
   # Find the theme path inside the Docker container
   THEME_DIR=$(bin/cli sh -c "cd /var/www/html/app/design/frontend && find . -type d -name '${THEME}'")
   if [ -z "$THEME_DIR" ]; then
-    echo "Unable to locate the theme path for ${THEME}."
+    echo "${red}Unable to locate the theme path for ${THEME}.${normal}"
     exit 1
   fi
 
@@ -48,7 +56,7 @@ else
   # Read the current theme path from env/theme.env
   THEME_PATH=$(grep '^HYVA_THEME_PATH=' env/theme.env | cut -d'=' -f2)
   if [ -z "$THEME_PATH" ]; then
-    echo "HYVA_THEME_PATH is not set in env/theme.env. Please set it manually."
+    echo "${red}HYVA_THEME_PATH is not set in env/theme.env. Please set it manually.${normal}"
     exit 1
   fi
 fi
@@ -57,13 +65,14 @@ TAILWIND_DIR="${THEME_PATH}/web/tailwind"
 
 # Check if the Tailwind directory exists inside the Docker container
 if ! bin/cli sh -c "[ -d '${TAILWIND_DIR}' ]"; then
-  echo "Tailwind directory not found at ${TAILWIND_DIR} inside the Docker container."
+  echo "${red}Tailwind directory not found at ${TAILWIND_DIR} inside the Docker container.${normal}"
   exit 1
 fi
 
 # Check if node_modules exists to determine if npm packages are installed
 if ! bin/cli sh -c "cd ${TAILWIND_DIR} && [ -d 'node_modules' ]"; then
   bin/npm install --prefix "${TAILWIND_DIR}"
+  echo "${green}npm packages installed in ${TAILWIND_DIR}.${normal}"
 fi
 
 # Run the npm command
@@ -72,11 +81,13 @@ if [ "$1" == "--watch" ]; then
   WATCH_PID=$(bin/clinotty ps -eaf | grep "npm run watch" | grep -v grep | awk '{print $2}')
   if [[ "" !=  "$WATCH_PID" ]]; then
     bin/cliq kill -9 "$WATCH_PID"
+    echo "${yellow}Duplicate npm watch process killed.${normal}"
   fi
 
   # Run watch mode in the background
   bin/cliq sh -c "cd ${TAILWIND_DIR} && npm run --silent watch" &
-  echo "npm run watch started in the background."
+  echo "${blue}npm run watch started in the background.${normal}"
 else
+  echo "${blue}Execute npm run watch.${normal}"
   bin/cli sh -c "cd ${TAILWIND_DIR} && npm run watch"
 fi

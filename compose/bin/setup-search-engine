@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+
+# shellcheck source=../env/elasticsearch.env
+source env/elasticsearch.env
+# shellcheck source=../env/opensearch.env
+source env/opensearch.env
+
+# Define text formatting
+bold=$(tput bold)
+normal=$(tput sgr0)
+green=$(tput setaf 2)
+yellow=$(tput setaf 3)
+red=$(tput setaf 1)
+blue=$(tput setaf 4)
+
+# Function to get the search engine from env.php.dist
+get_search_engine_from_env_php_dist() {
+    if bin/cli ls app/etc/env.php.dist >/dev/null 2>&1; then
+        echo $(bin/cli php -r "
+            \$config = include 'app/etc/env.php.dist';
+            echo isset(\$config['system']['default']['catalog']['search']['engine']) ? \$config['system']['default']['catalog']['search']['engine'] : 'undefined';
+        ")
+    else
+        echo ""
+    fi
+}
+
+# Determine the current search engine setting from Magento configuration
+current_search_engine=$(bin/magento config:show catalog/search/engine)
+
+# Initialize env.php.dist search engine setting variable
+env_php_dist_engine=$(get_search_engine_from_env_php_dist)
+
+# If env.php.dist doesn't define a search engine, use current search engine
+if [ -z "$env_php_dist_engine" ]; then
+    env_php_dist_engine="$current_search_engine"
+fi
+
+# Provide a recommendation based on the current and env.php.dist settings
+echo "${bold}${red}Current search engine setting: ${env_php_dist_engine}${normal}"
+
+if [ "$env_php_dist_engine" != "$current_search_engine" ]; then
+    recommended_choice="2"
+    recommendation_message="${yellow}The search engine in env.php.dist (${env_php_dist_engine}) differs from the current database setting (${current_search_engine}). It is recommended to use the configuration from env.php.dist to avoid potential reindexing issues.${normal}"
+else
+    case "$current_search_engine" in
+        "elasticsearch7")
+            recommended_choice="2"
+            recommendation_message="${green}ElasticSuite is not configured. Elasticsearch is currently used and recommended.${normal}"
+            ;;
+        "elasticsuite")
+            recommended_choice="1"
+            recommendation_message="${green}Elasticsearch is not configured. ElasticSuite is currently used and recommended.${normal}"
+            ;;
+        *)
+            recommended_choice="3"
+            recommendation_message="${yellow}Current search engine '${current_search_engine}' in database.${normal}"
+            ;;
+    esac
+fi
+
+# Ask user to choose between Elasticsearch, ElasticSuite, or do nothing
+echo "${bold}Choose the search engine to configure:${normal}"
+echo "1) Elasticsearch"
+echo "2) ElasticSuite"
+echo "3) Do nothing (keep current setting in database: ${current_search_engine})"
+echo "${blue}Recommended choice:${normal} ${recommended_choice} (${recommendation_message})"
+read -p "Enter the number of your choice [${recommended_choice}]: " search_engine_choice
+
+# Provide default choice if no input is given
+search_engine_choice=${search_engine_choice:-$recommended_choice}
+
+case "$search_engine_choice" in
+    "1")
+        echo "${blue}Setting up Elasticsearch to host ${ES_HOST} and port ${ES_PORT}...${normal}"
+        bin/clinotty bin/magento config:set catalog/search/elasticsearch7_server_hostname "${ES_HOST}"
+        bin/clinotty bin/magento config:set catalog/search/elasticsearch7_server_port "${ES_PORT}"
+        bin/clinotty bin/magento config:set catalog/search/engine "${ES_VERSION}"
+        echo "${green}Elasticsearch configuration completed.${normal}"
+        ;;
+    "2")
+        echo "${blue}Setting up ElasticSuite...${normal}"
+        bin/clinotty bin/magento config:set smile_elasticsuite_core_base_settings/es_client/servers "${ES_HOST}:${ES_PORT}"
+        bin/clinotty bin/magento config:set smile_elasticsuite_core_base_settings/es_client/enable_https_mode '0'
+        bin/clinotty bin/magento config:set smile_elasticsuite_core_base_settings/es_client/enable_http_auth '0'
+        bin/clinotty bin/magento config:set smile_elasticsuite_core_base_settings/es_client/http_auth_user ''
+        bin/clinotty bin/magento config:set smile_elasticsuite_core_base_settings/es_client/http_auth_pwd ''
+        bin/clinotty bin/magento config:set catalog/search/engine "${ELASTICSUITE}"
+        echo "${green}ElasticSuite configuration completed.${normal}"
+        ;;
+    "3")
+        echo "${yellow}No changes made to the search engine configuration. Keeping current setting: ${current_search_engine}.${normal}"
+        ;;
+    *)
+        echo "${red}Invalid choice. Exiting.${normal}"
+        exit 1
+        ;;
+esac
