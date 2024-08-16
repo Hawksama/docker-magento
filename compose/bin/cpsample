@@ -8,7 +8,7 @@ help() {
   echo "options:"
   echo "h     Print this Help."
   echo "m     Prepare environment files for macOS."
-  echo "v     Specify Magento version for compose file (e.g., 2.3.3, 2.3.7, 2.4.6-php8.1, latest)"
+  echo "v     Specify Magento version for compose file (e.g., 2.3.3, 2.3.7, 2.4.6, 2.4.6-php8.1, latest)"
   echo
 }
 
@@ -17,7 +17,7 @@ function mac_settings() {
 
   # Check if the file exists before copying
   if [ ! -f "src/app/etc/env.php" ]; then
-    cp env/env.php.sample src/app/etc/env.php
+    cp sample-files/env.php.sample src/app/etc/env.php
   fi
   cp docker_config/compose/compose.yaml.mac.sample compose.yaml
   cp docker_config/compose/compose.dev.yaml.mac.sample compose.dev.yaml
@@ -54,7 +54,7 @@ function linux_settings() {
 
   # Check if the file exists before copying
   if [ ! -f "src/app/etc/env.php" ]; then
-    cp env/env.php.sample src/app/etc/env.php
+    cp sample-files/env.php.sample src/app/etc/env.php
   fi
   cp docker_config/compose/compose.yaml.sample compose.yaml
   cp docker_config/compose/compose.dev.yaml.sample compose.dev.yaml

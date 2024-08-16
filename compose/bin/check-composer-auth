@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -e
+
+# Define the path to the auth.json file
+COMPOSER_AUTH_FILE="/var/www/.composer/auth.json"
+
+# Check if auth.json exists
+if ! bin/cli [ -f "$COMPOSER_AUTH_FILE" ]; then
+    echo "No composer auth.json found at $COMPOSER_AUTH_FILE"
+    echo "Please make sure to add your authentication tokens if required."
+    exit 1
+else
+    echo "Composer auth.json found."
+fi
+
+# Run composer install with --dry-run to check for auth errors
+echo "Checking if additional authentication is required..."
+bin/composer install --dry-run --no-plugins --no-scripts 2>&1 | tee composer-dry-run.log
+
+# Check the log for authentication errors
+if bin/cli grep -q "requires authentication" composer-dry-run.log; then
+    echo "Authentication required for one or more repositories."
+    echo "Please update your composer auth.json with the necessary credentials."
+    exit 1
+else
+    echo "No additional authentication required."
+fi
+
+# Cleanup
+bin/cli rm composer-dry-run.log
+
+echo "Magento installation is ready to proceed."
