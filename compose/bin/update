@@ -1,9 +1,75 @@
 #!/usr/bin/env bash
 set -o errexit
-mkdir -p tmpupdate && cd "$_"
+
+# Define text formatting
+bold=$(tput bold)
+normal=$(tput sgr0)
+green=$(tput setaf 2)
+yellow=$(tput setaf 3)
+red=$(tput setaf 1)
+blue=$(tput setaf 4)
+
+# Define paths
+backup_dir="../backup_$(date +%Y%m%d%H%M%S)"
+mkdir -p "$backup_dir"
+
+# Files to ignore in the root directory
+ignore_files_root=("compose.dev.yaml" "compose.dev-linux.yaml" "compose.dev-ssh.yaml" "compose.healthcheck.yaml" "compose.yaml")
+
+# Download the latest files to a temporary directory
+mkdir -p tmpupdate && cd tmpupdate
 curl -s https://raw.githubusercontent.com/Hawksama/docker-magento/master/lib/template | bash
-rm -rf .git
-rsync -av --checksum ./ ../
+
+# Loop through all files in the update
+for file in $(find . -type f); do
+    # Construct the corresponding file path in the project directory
+    local_file="../${file#./}"
+    backup_file="$backup_dir/${local_file#../}"
+
+    # Get the base filename
+    base_filename=$(basename "$local_file")
+    file_dir=$(dirname "$local_file")
+
+    # Ignore specific files in the root directory
+    if [[ " ${ignore_files_root[@]} " =~ " ${base_filename} " && "$file_dir" == ".." ]]; then
+        continue
+    fi
+
+    # Check if the file exists locally and compare it with the new version
+    if [ -f "$local_file" ]; then
+        # Check if there are any differences
+        if diff -q "$local_file" "$file" >/dev/null; then
+            continue
+        fi
+
+        # Display the diff to the user if there are differences
+        echo "${bold}${blue}Differences for $local_file:${normal}"
+        git diff --no-index --color "$local_file" "$file" || true
+
+        # Prompt the user whether they want to update this file
+        read -p "${yellow}Do you want to update $local_file? [y/n] ${normal}" response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            # Backup the local file before overwriting
+            mkdir -p "$(dirname "$backup_file")"
+            cp "$local_file" "$backup_file"
+            echo "${yellow}Backup of $local_file has been created in $backup_file${normal}"
+
+            # Overwrite the local file with the updated version
+            cp "$file" "$local_file"
+            echo "${green}$local_file has been updated.${normal}"
+        else
+            echo "${red}$local_file was not updated.${normal}"
+        fi
+    else
+        # If the file doesn't exist locally, simply copy it over
+        mkdir -p "$(dirname "$local_file")"
+        cp "$file" "$local_file"
+        echo "${green}New file $local_file has been added.${normal}"
+    fi
+done
+
+# Clean up the temporary directory
 cd ..
 rm -rf tmpupdate
-echo "docker-magento has been updated, run bin/restart to apply the updates"
+
+printf "\n${bold}${green}Your docker-magento files has been updated.${normal}"
