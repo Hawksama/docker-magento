@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+# Function to update HYVA_THEME_PATH in env/theme.env
+update_theme_path() {
+  local theme_path=$1
+  if grep -q '^HYVA_THEME_PATH=' env/theme.env; then
+    local current_path=$(grep '^HYVA_THEME_PATH=' env/theme.env | cut -d'=' -f2)
+    if [ "$current_path" == "$theme_path" ]; then
+      echo "HYVA_THEME_PATH is already set to ${theme_path}. No update needed."
+      return
+    else
+      sed -i.bak "s|^HYVA_THEME_PATH=.*|HYVA_THEME_PATH=${theme_path}|" env/theme.env
+      echo "HYVA_THEME_PATH updated to ${theme_path} in env/theme.env"
+    fi
+  else
+    echo "HYVA_THEME_PATH=${theme_path}" >> env/theme.env
+    echo "HYVA_THEME_PATH set to ${theme_path} in env/theme.env"
+  fi
+}
+
+# Define the placeholder path
+PLACEHOLDER_PATH="/path/to/your/hyva/theme"
+
+# Check if HYVA_THEME_PATH in env/theme.env is the placeholder path
+if grep -q "^HYVA_THEME_PATH=${PLACEHOLDER_PATH}" env/theme.env; then
+  bin/n98-magerun2 > /dev/null 2>&1
+
+  # Query for the current theme ID and path
+  DEFAULT_THEME_ID="select value from core_config_data where path = 'design/theme/theme_id'"
+  THEME_PATH_QUERY="select theme_path from theme where theme_id in ($DEFAULT_THEME_ID);"
+  VENDOR_THEME=$(bin/n98-magerun2 db:query "$THEME_PATH_QUERY" | sed -n 2p | cut -d$'\r' -f1)
+  THEME=$(echo "$VENDOR_THEME" | cut -d'/' -f2)
+  LOCALE_CODE=$(bin/magento config:show general/locale/code | cut -d$'\r' -f1 | sed 's/ *$//g')
+
+  # Find the theme path inside the Docker container
+  THEME_DIR=$(bin/cli sh -c "cd /var/www/html/app/design/frontend && find . -type d -name '${THEME}'")
+  if [ -z "$THEME_DIR" ]; then
+    echo "Unable to locate the theme path for ${THEME}."
+    exit 1
+  fi
+
+  # Remove the leading './' from the path and set the full theme path
+  THEME_PATH="/var/www/html/app/design/frontend/${THEME_DIR#./}"
+
+  # Update the HYVA_THEME_PATH in env/theme.env
+  update_theme_path "$THEME_PATH"
+else
+  # Read the current theme path from env/theme.env
+  THEME_PATH=$(grep '^HYVA_THEME_PATH=' env/theme.env | cut -d'=' -f2)
+  if [ -z "$THEME_PATH" ]; then
+    echo "HYVA_THEME_PATH is not set in env/theme.env. Please set it manually."
+    exit 1
+  fi
+fi
+
+TAILWIND_DIR="${THEME_PATH}/web/tailwind"
+
+# Check if the Tailwind directory exists inside the Docker container
+if ! bin/cli sh -c "[ -d '${TAILWIND_DIR}' ]"; then
+  echo "Tailwind directory not found at ${TAILWIND_DIR} inside the Docker container."
+  exit 1
+fi
+
+# Check if node_modules exists to determine if npm packages are installed
+if ! bin/cli sh -c "cd ${TAILWIND_DIR} && [ -d 'node_modules' ]"; then
+  bin/npm install --prefix "${TAILWIND_DIR}"
+fi
+
+# Run the npm command
+if [ "$1" == "--watch" ]; then
+  # Kill duplicate watch process
+  WATCH_PID=$(bin/clinotty ps -eaf | grep "npm run watch" | grep -v grep | awk '{print $2}')
+  if [[ "" !=  "$WATCH_PID" ]]; then
+    bin/cliq kill -9 "$WATCH_PID"
+  fi
+
+  # Run watch mode in the background
+  bin/cliq sh -c "cd ${TAILWIND_DIR} && npm run --silent watch" &
+  echo "npm run watch started in the background."
+else
+  bin/cli sh -c "cd ${TAILWIND_DIR} && npm run watch"
+fi
