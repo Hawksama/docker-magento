@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -o errexit
 
+start_time=$(date +%s)  # Record the start time
+
 help() {
     # Display Help
     echo "Prepare docker setup for project."
@@ -52,9 +54,6 @@ MEM=$(docker info | grep "Total Memory" | cut -d':' -f2 | xargs | sed s/GiB//)
 
 bin/update_phpfpm_env
 
-# Check if auth.json exists to avoid Composer authentication errors
-bin/setup-composer-auth
-
 # shellcheck source=../env/db.env
 source env/db.env
 # shellcheck source=../env/elasticsearch.env
@@ -99,6 +98,9 @@ fi
 bin/start --no-dev
 # Check the exit status of the start script
 [ $? != 0 ] && echo "Failed to start Docker services" && exit
+
+# Check if auth.json exists to avoid Composer authentication errors
+bin/setup-composer-auth
 
 bin/check-broken-symlinks
 # Check the exit status of the check-broken-symlinks script
@@ -242,11 +244,20 @@ bin/clinotty bin/magento cron:install
 echo "Turning on developer mode..."
 bin/clinotty bin/magento deploy:mode:set developer
 
-echo "Docker development environment setup complete."
-echo "You may now access your Magento instance at https://${DOMAIN}/"
-
 if [ -n "$MACSETUP" ]; then
     echo "Copying files from container to host..."
     bin/copyfromcontainer vendor
     bin/copyfromcontainer generated
 fi
+
+echo "Docker development environment setup complete."
+echo "You may now access your Magento instance at https://${DOMAIN}/"
+
+end_time=$(date +%s)
+elapsed_seconds=$(( end_time - start_time ))
+
+# Convert total seconds to minutes and seconds
+elapsed_minutes=$(( elapsed_seconds / 60 ))
+remaining_seconds=$(( elapsed_seconds % 60 ))
+
+echo "Total execution time: ${elapsed_minutes} minute(s) and ${remaining_seconds} second(s)"
