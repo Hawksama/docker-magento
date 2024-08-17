@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+
+# Define text formatting
+bold=$(tput bold)
+normal=$(tput sgr0)
+green=$(tput setaf 2)
+yellow=$(tput setaf 3)
+red=$(tput setaf 1)
+
+# Define the placeholder value for ACTIVE_THEME
+placeholder_theme_value="Vendor/theme"
+
+# Function to update ACTIVE_THEME in env/theme.env
+update_active_theme() {
+    local active_theme=$1
+
+    # Check if ACTIVE_THEME is set to the placeholder value
+    if grep -q "^ACTIVE_THEME=${placeholder_theme_value}" env/theme.env; then
+        echo "${yellow}ACTIVE_THEME is currently set to the placeholder value (${placeholder_theme_value}). Updating to ${active_theme}.${normal}"
+
+        # Update ACTIVE_THEME with the actual active theme
+        sed -i '' "s|^ACTIVE_THEME=.*|ACTIVE_THEME=${active_theme}|" env/theme.env
+        echo "${green}ACTIVE_THEME updated to ${active_theme} in env/theme.env${normal}"
+
+        # Since ACTIVE_THEME is updated, also update LOCAL_THEME_LANGUAGE and PROJECT_NAME
+        update_local_theme_language "$(get_locale_code)"
+        update_project_name "$(echo "$active_theme" | cut -d'/' -f2)"
+    else
+        local current_theme=$(grep '^ACTIVE_THEME=' env/theme.env | cut -d'=' -f2)
+        echo "${yellow}ACTIVE_THEME is set to ${current_theme}. No update needed.${normal}"
+    fi
+}
+
+# Function to determine the current active theme
+get_active_theme() {
+    bin/n98-magerun2 > /dev/null 2>&1
+
+    # Query for the current theme ID
+    DEFAULT_THEME_ID="select value from core_config_data where path = 'design/theme/theme_id'"
+    THEME_QUERY="select theme_path from theme where theme_id in ($DEFAULT_THEME_ID);"
+    VENDOR_THEME=$(bin/n98-magerun2 db:query "$THEME_QUERY" | sed -n 2p | cut -d$'\r' -f1)
+
+    echo "$VENDOR_THEME"
+}
+
+# Function to update LOCAL_THEME_LANGUAGE in env/theme.env
+update_local_theme_language() {
+    local theme_language=$1
+
+    # Update LOCAL_THEME_LANGUAGE with the actual theme language
+    sed -i '' "s|^LOCAL_THEME_LANGUAGE=.*|LOCAL_THEME_LANGUAGE=${theme_language}|" env/theme.env
+    echo "${green}LOCAL_THEME_LANGUAGE updated to ${theme_language} in env/theme.env${normal}"
+}
+
+# Function to update PROJECT_NAME in env/theme.env
+update_project_name() {
+    local project_name=$1
+
+    # Update PROJECT_NAME with the actual project name
+    sed -i '' "s|^PROJECT_NAME=.*|PROJECT_NAME=${project_name}|" env/theme.env
+    echo "${green}PROJECT_NAME updated to ${project_name} in env/theme.env${normal}"
+}
+
+# Function to determine the current locale code
+get_locale_code() {
+    bin/magento config:show general/locale/code | sed 's/ *$//g'
+}
+
+# Check if ACTIVE_THEME is a placeholder before querying the database
+if grep -q "^ACTIVE_THEME=${placeholder_theme_value}" env/theme.env; then
+    # Get the current active theme from Magento
+    active_theme=$(get_active_theme)
+
+    # Update the ACTIVE_THEME in env/theme.env and subsequently LOCAL_THEME_LANGUAGE and PROJECT_NAME
+    update_active_theme "$active_theme"
+else
+    echo "${yellow}ACTIVE_THEME is not set to the placeholder value. No update needed.${normal}"
+fi
