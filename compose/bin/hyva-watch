@@ -10,20 +10,77 @@ blue=$(tput setaf 4)
 
 # Function to update HYVA_THEME_PATH in env/theme.env
 update_theme_path() {
-  local theme_path=$1
-  if grep -q '^HYVA_THEME_PATH=' env/theme.env; then
-    local current_path=$(grep '^HYVA_THEME_PATH=' env/theme.env | cut -d'=' -f2)
-    if [ "$current_path" == "$theme_path" ]; then
-      echo "${yellow}HYVA_THEME_PATH is already set to ${theme_path}. No update needed.${normal}"
-      return
+    local theme_path=$1
+
+    # Update HYVA_THEME_PATH in env/theme.env
+    if grep -q '^HYVA_THEME_PATH=' env/theme.env; then
+        local current_path=$(grep '^HYVA_THEME_PATH=' env/theme.env | cut -d'=' -f2)
+        if [ "$current_path" == "$theme_path" ]; then
+            echo "${yellow}HYVA_THEME_PATH is already set to ${theme_path}. No update needed.${normal}"
+            return
+        else
+            sed -i '' "s|^HYVA_THEME_PATH=.*|HYVA_THEME_PATH=${theme_path}|" env/theme.env
+            echo "${green}HYVA_THEME_PATH updated to ${theme_path} in env/theme.env${normal}"
+        fi
     else
-      sed -i '' "s|^HYVA_THEME_PATH=.*|HYVA_THEME_PATH=${theme_path}|" env/theme.env
-      echo "${green}HYVA_THEME_PATH updated to ${theme_path} in env/theme.env${normal}"
+        echo "HYVA_THEME_PATH=${theme_path}" >> env/theme.env
+        echo "${green}HYVA_THEME_PATH set to ${theme_path} in env/theme.env${normal}"
     fi
-  else
-    echo "HYVA_THEME_PATH=${theme_path}" >> env/theme.env
-    echo "${green}HYVA_THEME_PATH set to ${theme_path} in env/theme.env${normal}"
-  fi
+}
+
+# Function to find the theme directory
+find_theme_dir() {
+    local theme=$1
+    local theme_dir
+
+    # Extract vendor name and theme name
+    local vendor_name=$(echo "$theme" | cut -d'/' -f1)
+    local theme_name=$(echo "$theme" | cut -d'/' -f2)
+
+    # Check in app/code with uppercase vendor name
+    theme_dir=$(bin/cli sh -c "cd app/design/frontend && find . -type d -name '${vendor_name}'")
+    if [ -n "$theme_dir" ]; then
+        # Check if theme_name exists in the vendor directory
+        if bin/cli sh -c "[ -d app/design/frontend/${theme_dir#./}/${theme_name} ]"; then
+            echo "app/design/frontend/${vendor_name#./}/${theme_name}"
+            return
+        fi
+    fi
+
+    # Convert vendor name to lowercase for vendor search
+    local lowercase_vendor_name=$(echo "$vendor_name" | awk '{print tolower($0)}')
+
+    # Check in vendor with lowercase vendor name
+    theme_dir=$(bin/cli sh -c "cd vendor && find . -type d -name '${lowercase_vendor_name}/${theme_name}'")
+    if [ -n "$theme_dir" ]; then
+        if bin/cli sh -c "[ -d vendor/${theme_dir#./}/${theme_name} ]"; then
+            echo "vendor/${theme_dir#./}/${theme_name}"
+            return
+        fi
+    fi
+
+    echo ""
+}
+
+# Function to check if theme extends Hyva in theme.xml
+check_theme_extension() {
+    local theme_path=$1
+    local theme_xml_path="${theme_path}/theme.xml"
+
+    # Check if the theme.xml file exists inside the Docker container
+    if ! bin/cli sh -c "test -f '${theme_xml_path}'"; then
+        echo "${red}theme.xml not found in ${theme_path}.${normal}"
+        exit 1
+    fi
+
+    local parent_value=$(bin/cli sh -c "grep '<parent>' ${theme_xml_path} | sed 's/.*<parent>\(.*\)<\/parent>.*/\1/'")
+    if [[ "$parent_value" == *"Hyva"* ]]; then
+        echo "${green}Theme extends Hyva.${normal}"
+        return 0
+    else
+        echo "${red}Theme does not extend Hyva vendor. Aborting.${normal}"
+        exit 1
+    fi
 }
 
 # Define the placeholder path
@@ -31,63 +88,70 @@ PLACEHOLDER_PATH="/path/to/your/hyva/theme"
 
 # Check if HYVA_THEME_PATH in env/theme.env is the placeholder path
 if grep -q "^HYVA_THEME_PATH=${PLACEHOLDER_PATH}" env/theme.env; then
-  bin/n98-magerun2 > /dev/null 2>&1
+    bin/n98-magerun2 > /dev/null 2>&1
 
-  # Query for the current theme ID and path
-  DEFAULT_THEME_ID="select value from core_config_data where path = 'design/theme/theme_id'"
-  THEME_PATH_QUERY="select theme_path from theme where theme_id in ($DEFAULT_THEME_ID);"
-  VENDOR_THEME=$(bin/n98-magerun2 db:query "$THEME_PATH_QUERY" | sed -n 2p | cut -d$'\r' -f1)
-  THEME=$(echo "$VENDOR_THEME" | cut -d'/' -f2)
-  LOCALE_CODE=$(bin/magento config:show general/locale/code | cut -d$'\r' -f1 | sed 's/ *$//g')
+    # Query for the current theme ID and path
+    DEFAULT_THEME_ID="select value from core_config_data where path = 'design/theme/theme_id'"
+    THEME_PATH_QUERY="select theme_path from theme where theme_id in ($DEFAULT_THEME_ID);"
+    VENDOR_THEME=$(bin/n98-magerun2 db:query "$THEME_PATH_QUERY" | sed -n 2p | cut -d$'\r' -f1)
 
-  # Find the theme path inside the Docker container
-  THEME_DIR=$(bin/cli sh -c "cd /var/www/html/app/design/frontend && find . -type d -name '${THEME}'")
-  if [ -z "$THEME_DIR" ]; then
-    echo "${red}Unable to locate the theme path for ${THEME}.${normal}"
-    exit 1
-  fi
+    # Find the theme path inside the Docker container
+    THEME_PATH=$(find_theme_dir "$VENDOR_THEME")
 
-  # Remove the leading './' from the path and set the full theme path
-  THEME_PATH="/var/www/html/app/design/frontend/${THEME_DIR#./}"
+    if [ -z "$THEME_PATH" ]; then
+        echo "${red}Unable to locate the theme path for ${VENDOR_THEME}.${normal}"
+        exit 1
+    fi
 
-  # Update the HYVA_THEME_PATH in env/theme.env
-  update_theme_path "$THEME_PATH"
+    # Check if the theme extends Hyva
+    check_theme_extension "$THEME_PATH"
+
+    # Append /web/tailwind to the theme path
+    tailwind_path="${THEME_PATH}/web/tailwind"
+
+    # Update the HYVA_THEME_PATH in env/theme.env
+    update_theme_path "$tailwind_path"
+
+    # Set the updated theme path
+    THEME_PATH="$tailwind_path"
 else
-  # Read the current theme path from env/theme.env
-  THEME_PATH=$(grep '^HYVA_THEME_PATH=' env/theme.env | cut -d'=' -f2)
-  if [ -z "$THEME_PATH" ]; then
-    echo "${red}HYVA_THEME_PATH is not set in env/theme.env. Please set it manually.${normal}"
-    exit 1
-  fi
+    # Read the current theme path from env/theme.env if the placeholder check was false
+    THEME_PATH=$(grep '^HYVA_THEME_PATH=' env/theme.env | cut -d'=' -f2)
+    if [ -z "$THEME_PATH" ]; then
+        echo "${red}HYVA_THEME_PATH is not set in env/theme.env. Please set it manually.${normal}"
+        exit 1
+    fi
 fi
 
-TAILWIND_DIR="${THEME_PATH}/web/tailwind"
+TAILWIND_DIR="${THEME_PATH}"
+
+echo "${blue}Checking Tailwind CSS directory at ${TAILWIND_DIR}...${normal}"
 
 # Check if the Tailwind directory exists inside the Docker container
 if ! bin/cli sh -c "[ -d '${TAILWIND_DIR}' ]"; then
-  echo "${red}Tailwind directory not found at ${TAILWIND_DIR} inside the Docker container.${normal}"
-  exit 1
+    echo "${red}Tailwind directory not found at ${TAILWIND_DIR} inside the Docker container.${normal}"
+    exit 1
 fi
 
 # Check if node_modules exists to determine if npm packages are installed
 if ! bin/cli sh -c "cd ${TAILWIND_DIR} && [ -d 'node_modules' ]"; then
-  bin/npm install --prefix "${TAILWIND_DIR}"
-  echo "${green}npm packages installed in ${TAILWIND_DIR}.${normal}"
+    bin/npm install --prefix "${TAILWIND_DIR}"
+    echo "${green}npm packages installed in ${TAILWIND_DIR}.${normal}"
 fi
 
 # Run the npm command
 if [ "$1" == "--watch" ]; then
-  # Kill duplicate watch process
-  WATCH_PID=$(bin/clinotty ps -eaf | grep "npm run watch" | grep -v grep | awk '{print $2}')
-  if [[ "" !=  "$WATCH_PID" ]]; then
-    bin/cliq kill -9 "$WATCH_PID"
-    echo "${yellow}Duplicate npm watch process killed.${normal}"
-  fi
+    # Kill duplicate watch process
+    WATCH_PID=$(bin/clinotty ps -eaf | grep "npm run watch" | grep -v grep | awk '{print $2}')
+    if [[ "" !=  "$WATCH_PID" ]]; then
+        bin/cliq kill -9 "$WATCH_PID"
+        echo "${yellow}Duplicate npm watch process killed.${normal}"
+    fi
 
-  # Run watch mode in the background
-  bin/cliq sh -c "cd ${TAILWIND_DIR} && npm run --silent watch" &
-  echo "${blue}npm run watch started in the background.${normal}"
+    # Run watch mode in the background
+    bin/cliq sh -c "cd ${TAILWIND_DIR} && npm run --silent watch" &
+    echo "${blue}npm run watch started in the background.${normal}"
 else
-  echo "${blue}Execute npm run watch.${normal}"
-  bin/cli sh -c "cd ${TAILWIND_DIR} && npm run watch"
+    echo "${blue}Execute npm run watch.${normal}"
+    bin/cli sh -c "cd ${TAILWIND_DIR} && npm run watch"
 fi
