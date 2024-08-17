@@ -201,6 +201,9 @@ bin/clinotty bin/magento admin:user:create --admin-user="$MAGENTO_ADMIN_USER" --
 echo "${blue}Forcing deploy of static content to speed up initial requests.${normal}"
 bin/clinotty bin/magento setup:static-content:deploy -f
 
+echo "${blue}Updating active theme in env/theme.env${normal}"
+bin/update-active-theme
+
 if [ -n "$MACSETUP" ]; then
     bin/copyfromcontainer lib
     bin/copyfromcontainer nginx.conf.sample

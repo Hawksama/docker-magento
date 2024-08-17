@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #Created by Carabus
 
-# shellcheck source=../env/magento.env
+# shellcheck source=../env/theme.env
 source env/theme.env
 
 bin/cli rm -rf "$THEME_STATIC_PATH" var/view_preprocessed/*;
