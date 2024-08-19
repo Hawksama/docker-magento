@@ -1,2 +1,53 @@
 #!/usr/bin/env bash
-bin/cli vendor/bin/phpstan analyse "$@"
+
+# Ensure that a path is provided
+if [ -z "$1" ]; then
+  echo "Please provide a path to the code you want to analyze."
+  exit 1
+fi
+
+CODE_PATH="$1"
+
+# Run PHP_CodeSniffer
+echo "Running PHP_CodeSniffer..."
+bin/phpcs "$CODE_PATH"
+PHPCS_STATUS=$?
+
+# Run PHPMD
+echo "Running PHPMD..."
+bin/phpmd "$CODE_PATH"
+PHPMD_STATUS=$?
+
+# Run PHPStan
+echo "Running PHPStan..."
+bin/phpstan "$CODE_PATH" --level 9
+PHPSTAN_STATUS=$?
+
+# Check the status of each tool and display a summary
+echo
+echo "Analysis Summary:"
+
+if [ $PHPCS_STATUS -ne 0 ]; then
+  echo "PHP_CodeSniffer encountered errors."
+else
+  echo "PHP_CodeSniffer passed without errors."
+fi
+
+if [ $PHPMD_STATUS -ne 0 ]; then
+  echo "PHPMD encountered errors."
+else
+  echo "PHPMD passed without errors."
+fi
+
+if [ $PHPSTAN_STATUS -ne 0 ]; then
+  echo "PHPStan encountered errors."
+else
+  echo "PHPStan passed without errors."
+fi
+
+# Exit with a status code indicating overall success or failure
+if [ $PHPCS_STATUS -ne 0 ] || [ $PHPMD_STATUS -ne 0 ] || [ $PHPSTAN_STATUS -ne 0 ]; then
+  exit 1
+else
+  exit 0
+fi
