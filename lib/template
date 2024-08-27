@@ -8,9 +8,6 @@ git checkout origin/master -- compose
 # Ensure these are created so Docker doesn't create them as root
 mkdir -p ~/.composer ~/.ssh
 
-mv compose/* ./
-rm -rf compose .git
-
 # Check if "src" directory exists
 if [ -d "src" ]; then
   # If "src" exists, rename it to "src-old"
