@@ -187,13 +187,14 @@ else
     fi
 fi
 
-echo "${blue}Running magento set:up...${normal}"
-bin/clinotty bin/magento setup:up
+echo "Running magento app:config:import..."
+bin/clinotty bin/magento app:config:import
 
+echo "Attempting to set up search engine..."
 bin/setup-search-engine
 
-#echo "Running magento app:config:import..."
-#bin/clinotty bin/magento app:config:import
+echo "${blue}Running magento set:up...${normal}"
+bin/clinotty bin/magento setup:up
 
 echo "${blue}Creating admin user ${MAGENTO_ADMIN_USER} with password ${MAGENTO_ADMIN_PASSWORD}.${normal}"
 bin/clinotty bin/magento admin:user:create --admin-user="$MAGENTO_ADMIN_USER" --admin-password="$MAGENTO_ADMIN_PASSWORD" --admin-email="$MAGENTO_ADMIN_EMAIL" --admin-firstname="$MAGENTO_ADMIN_FIRST_NAME" --admin-lastname="$MAGENTO_ADMIN_LAST_NAME"
