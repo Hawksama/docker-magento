@@ -9,7 +9,7 @@ path=${1:-"app/code"}
 
 #echo "path: src/$path"
 # Find files to update
-files_to_update=$(grep -RL 'declare(strict_types=1)' "src/$path" --include="*.php" --exclude="registration.php") || true
+files_to_update=$(grep -RL 'declare(strict_types=1)' "src/$path" --include="*.php" --include="*.phtml") || true
 
 # Display the list of files that will be updated
 if [ -n "$files_to_update" ]; then

@@ -53,8 +53,18 @@ fix_sql_file() {
   local original_file="$1"
   local fixed_file="${original_file%.sql}_fixed.sql"
 
-  bin/cli mv "$original_file" "$fixed_file"
-  bin/cli sed -i 's/utf8mb4_0900_ai_ci/utf8mb4_general_ci/g' "$fixed_file"
+  # Check if the file contains the problematic collation
+  if bin/cli grep -q 'utf8mb4_0900_ai_ci' "$original_file"; then
+    # Move the original file to a new fixed file
+    bin/cli cp "$original_file" "$fixed_file"
+
+    # Replace the problematic collation in the new file
+    bin/cli sed -i 's/utf8mb4_0900_ai_ci/utf8mb4_general_ci/g' "$fixed_file"
+  else
+    # No need to fix the file if the collation is not present
+    echo "No collation issues found in $original_file. No changes made."
+    fixed_file="$original_file"  # Use the original file as is
+  fi
 
   echo "$fixed_file"
 }
@@ -133,36 +143,56 @@ transfer_selected_tables() {
   local timestamp="$2"
   local new_db_name="${old_db_name}_${timestamp}"
 
-  declare -A categories=(
-    ["Core Tables"]="core_config_data admin_user admin_password"
-    ["Catalog Tables"]="catalog_product_entity catalog_category_entity cataloginventory_stock_item"
-    ["Sales Tables"]="sales_order sales_order_item sales_order_grid"
-    ["Customer Tables"]="customer_entity customer_address_entity"
-  )
+  # Define table lists for each category
+  core_tables="core_config_data admin_user admin_password"
+  catalog_tables="catalog_product_entity catalog_category_entity cataloginventory_stock_item"
+  sales_tables="sales_order sales_order_item sales_order_grid"
+  customer_tables="customer_entity customer_address_entity"
 
-  local selected_categories=()
+  # Define a variable for all tables combined
+  all_tables="$core_tables $catalog_tables $sales_tables $customer_tables"
 
   echo "Please select categories to transfer (you can select multiple categories, separate by spaces):"
-  select category in "${!categories[@]}"; do
-    if [[ -n "$category" ]]; then
-      selected_categories+=("$category")
-      echo "You selected: ${selected_categories[*]}"
-      break
-    else
-      echo "Invalid selection. Please try again."
-    fi
+  echo "1) Core Tables"
+  echo "2) Catalog Tables"
+  echo "3) Sales Tables"
+  echo "4) Customer Tables"
+  echo "5) All Tables above"
+  read -p "Enter your choice (1, 2, 3, 4, 5): " choice
+
+  # Initialize the list of selected tables
+  selected_tables=""
+
+  case $choice in
+    1)
+      selected_tables="$core_tables"
+      ;;
+    2)
+      selected_tables="$catalog_tables"
+      ;;
+    3)
+      selected_tables="$sales_tables"
+      ;;
+    4)
+      selected_tables="$customer_tables"
+      ;;
+    5)
+      selected_tables="$all_tables"
+      ;;
+    *)
+      echo "Invalid selection. No tables selected."
+      return
+      ;;
+  esac
+
+  echo "Transferring tables from category: $choice"
+  for table in $selected_tables; do
+    echo "Transferring table: $table"
+    bin/cli mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -h"${MYSQL_HOST}" \
+      -e "REPLACE INTO ${old_db_name}.${table} SELECT * FROM ${new_db_name}.${table};"
   done
 
-  for category in "${selected_categories[@]}"; do
-    echo "Transferring tables from category: $category"
-    for table in ${categories[$category]}; do
-      echo "Transferring table: $table"
-      bin/cli mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -h"${MYSQL_HOST}" \
-        -e "REPLACE INTO ${new_db_name}.${table} SELECT * FROM ${old_db_name}.${table};"
-    done
-  done
-
-  echo "Selected tables transferred successfully to '${new_db_name}'."
+  echo "Selected tables transferred successfully to '${old_db_name}'."
 }
 
 # Main script execution
