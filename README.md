@@ -1,7 +1,8 @@
-<h1 align="center">markshust/docker-magento</h1>
+<h1 align="center">hawksama/docker-magento</h1>
 
 <div align="center">
-  <p>Mark Shust's Docker Configuration for Magento</p>
+  <h3>The best docker for development purposes based on Mark Shust's Docker Configuration for Magento</h3>
+  <p>Loads of customization to improve Magento development</p>
   <img src="https://img.shields.io/badge/magento-2.X-brightgreen.svg?logo=magento&longCache=true" alt="Supported Magento Versions" />
   <a href="https://hub.docker.com/r/markoshust/magento-php/" target="_blank"><img src="https://img.shields.io/docker/pulls/markoshust/magento-php.svg?label=php%20docker%20pulls" alt="Docker Hub Pulls - PHP" /></a>
   <a href="https://hub.docker.com/r/markoshust/magento-nginx/" target="_blank"><img src="https://img.shields.io/docker/pulls/markoshust/magento-nginx.svg?label=nginx%20docker%20pulls" alt="Docker Hub Pulls - Nginx" /></a>
