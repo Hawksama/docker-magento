@@ -74,7 +74,7 @@ check_theme_extension() {
     fi
 
     local parent_value=$(bin/cli sh -c "grep '<parent>' ${theme_xml_path} | sed 's/.*<parent>\(.*\)<\/parent>.*/\1/'")
-    if [[ "$parent_value" == *"Hyva"* ]]; then
+    if [[ "$parent_value" == *"Hyva"* || "$parent_value" == *"hyva"* ]]; then
         echo "${green}Theme extends Hyva.${normal}"
         return 0
     else
