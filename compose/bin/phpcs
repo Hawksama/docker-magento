@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 
-# Check if phpcs.xml exists
-if bin/cliq ls phpcs.xml ; then
-    echo "running phpcs.xml"
-    # Use phpcs.xml if it exists
-    bin/clinotty vendor/bin/phpcs --standard=phpcs.xml "$@"
-else
-    echo "running original settings"
-    # Use the original rules if phpcs.xml does not exist
+# Source the configuration check script
+source bin/phpcs-config-check
+
+# Determine the configuration to use
+CONFIG_FILE=$(determine_config)
+
+# Run phpcs with the determined configuration
+if [ "$CONFIG_FILE" = "Magento2" ]; then
     bin/clinotty vendor/bin/phpcs --standard=Magento2 --exclude=Magento2.CodeAnalysis.EmptyBlock \
-    --extensions=php,phtml --error-severity=10 --ignore-annotations \
-    "$@"
+    --extensions=php,phtml --error-severity=10 --ignore-annotations "$@"
+else
+    bin/clinotty vendor/bin/phpcs --standard="$CONFIG_FILE" "$@"
 fi

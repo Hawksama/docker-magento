@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+
+# Load environment variables
+source env/coding-standards.env
+
+# Define text formatting
+bold=$(tput bold)
+normal=$(tput sgr0)
+green=$(tput setaf 2)
+yellow=$(tput setaf 3)
+red=$(tput setaf 1)
+blue=$(tput setaf 4)
+
+# Define paths and placeholders
+LOCAL_CONFIG="phpcs.xml"
+PLACEHOLDER="placeholder"
+
+# Global variable for matching packages
+matching_packages=()
+
+# Function to check and install fzf if not installed
+install_fzf() {
+    if ! command -v fzf &> /dev/null; then
+        echo "${yellow}fzf is not installed. Installing fzf...${normal}"
+        if [ "$(uname)" = "Darwin" ]; then
+            # macOS
+            brew install fzf
+        elif [ -f /etc/debian_version ]; then
+            # Debian-based
+            sudo apt-get update && sudo apt-get install -y fzf
+        elif [ -f /etc/redhat-release ]; then
+            # Red Hat-based
+            sudo yum install -y fzf
+        else
+            echo "${red}Unsupported OS. Please install fzf manually.${normal}"
+            exit 1
+        fi
+    fi
+}
+
+# Function to check if a module requires magento/magento-coding-standard
+requires_magento_coding_standard() {
+    local module_name="$1"
+    echo "${blue}Checking module: ${bold}$module_name${normal}" # Notify user which module is being checked
+
+    bin/cli composer show "$module_name" 2>/dev/null | grep -q "magento/magento-coding-standard"
+}
+
+# Function to find all packages that require magento/magento-coding-standard
+find_coding_standard_modules() {
+    local package_list
+    local package
+
+    package_list=$(bin/cli composer show --direct | awk '{print $1}')
+
+    for package in $package_list; do
+        if requires_magento_coding_standard "$package"; then
+            matching_packages+=("$package")
+        fi
+    done
+
+    echo "${matching_packages[@]}"
+}
+
+# Function to prompt user to select a coding standard module using fzf
+prompt_user_selection() {
+    local selected_package
+
+    selected_package=$(printf "%s\n" "${matching_packages[@]}" | fzf --height=40% --border --prompt="Select a coding standard module: " --info=inline)
+
+    if [[ -n "$selected_package" ]]; then
+        echo "$selected_package"
+    else
+        echo "${red}No valid selection made.${normal}"
+        return 1
+    fi
+}
+
+# Function to update the env file with the selected module
+update_env_file() {
+    local selected_module="$1"
+    # Update existing CODING_STANDARDS_MODULE
+    sed -i '' "s|^CODING_STANDARDS_MODULE=.*|CODING_STANDARDS_MODULE=${selected_module}|" env/coding-standards.env
+    echo "${green}Updated CODING_STANDARDS_MODULE to ${selected_module} in env/coding-standards.env.${normal}"
+}
+
+# Function to reload environment variables from the env file
+reload_env_vars() {
+    source env/coding-standards.env
+}
+
+# Function to determine the correct vendor configuration
+get_vendor_config() {
+    local coding_standard_module=$(grep "^CODING_STANDARDS_MODULE=" env/coding-standards.env | awk -F= '{print $2}')
+
+    if [[ -n "$coding_standard_module" ]]; then
+        echo "vendor/$coding_standard_module/configs/phpcs/phpcs.xml"
+    else
+        echo "$MAGENTO_CODING_STANDARD"
+    fi
+}
+
+# Function to determine which configuration to use
+determine_config() {
+    if [ -f "$LOCAL_CONFIG" ]; then
+        echo "$LOCAL_CONFIG"
+    else
+        VENDOR_CONFIG=$(get_vendor_config)
+        if bin/cli [ -f "$VENDOR_CONFIG" ]; then
+            echo "$VENDOR_CONFIG"
+        else
+            echo "Magento2"
+        fi
+    fi
+}
+
+# Function to find the path of the selected module
+find_module_path() {
+    local module_name="$1"
+    bin/cli composer show "$module_name" --path | awk '{print $2}'
+}
+
+# Main logic to check and update the configuration
+main() {
+    # Load environment variables
+    source env/coding-standards.env
+
+    # Check if fzf is installed
+    install_fzf
+
+    if grep -q "^CODING_STANDARDS_MODULE=${PLACEHOLDER}" env/coding-standards.env; then
+        echo "${yellow}CODING_STANDARDS_MODULE is set to placeholder. Please select a coding standard module.${normal}"
+
+        # Find coding standard modules
+        find_coding_standard_modules
+
+        if [ ${#matching_packages[@]} -eq 0 ]; then
+            echo "${red}No coding standard modules found.${normal}"
+            exit 1
+        fi
+
+        # Prompt user to select a module
+        selected_module=$(prompt_user_selection)
+        if [ $? -ne 0 ]; then
+            echo "${red}Failed to select a valid module.${normal}"
+            exit 1
+        fi
+
+        # Update the env file with the selected module
+        update_env_file "$selected_module"
+
+        # Reload environment variables to use updated value
+        reload_env_vars
+
+        # Find and display the path of the selected module
+        module_path=$(find_module_path "$selected_module")
+        if [ -n "$module_path" ]; then
+            echo "${green}The module '$selected_module' is installed at: ${bold}$module_path${normal}"
+        else
+            echo "${red}Failed to find the path for the module '$selected_module'.${normal}"
+        fi
+    fi
+
+    # Display the configuration file being used
+    echo "Using configuration file: $(determine_config)"
+}
+
+# Run the main function
+main
+
+# Export the determine_config function for use by other scripts
+export -f determine_config
