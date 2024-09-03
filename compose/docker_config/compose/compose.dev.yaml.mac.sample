@@ -8,8 +8,6 @@ services:
       - ./src/lib:/var/www/html/lib:cached
       - ./src/composer.json:/var/www/html/composer.json:cached
       - ./src/composer.lock:/var/www/html/composer.lock:cached
-      - ./src/phpstan.neon:/var/www/html/phpstan.neon:cached
-      - ./src/phpstan-baseline.neon:/var/www/html/phpstan-baseline.neon:cached
       - ./src/nginx.conf.sample:/var/www/html/nginx.conf:cached
       - ./src/dbdump/:/var/www/html/dbdump:cached
       - ./src/patches:/var/www/html/patches:cached

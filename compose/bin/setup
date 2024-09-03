@@ -210,8 +210,6 @@ if [ -n "$MACSETUP" ]; then
     bin/copyfromcontainer nginx.conf.sample
 fi
 
-bin/create_phpstan_files
-
 if [ -n "$MACSETUP" ]; then
     echo "${blue}Copying files from container to host.${normal}"
     bin/copyfromcontainer dev
