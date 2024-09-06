@@ -3,8 +3,8 @@
 # Run the Magento command with the provided arguments
 bin/cli bin/magento "$@"
 
-# Check if the passed argument is 'setup:di:compile'
-if [[ "$*" == *"setup:di:compile"* ]]; then
+# Check if the passed argument is 'setup:di:compile' or 'setup:upgrade'
+if [[ "$*" == *"setup:di:compile"* || "$*" == *"setup:upgrade"* ]]; then
   # If so, run the additional command
   echo "Syncing generated files from container to host..."
   bin/copyfromcontainer generated
