@@ -144,7 +144,7 @@ transfer_selected_tables() {
   local new_db_name="${old_db_name}_${timestamp}"
 
   # Define table lists for each category
-  core_tables="core_config_data admin_user admin_password"
+  core_tables="core_config_data admin_user admin_passwords authorization_role"
   catalog_tables="catalog_product_entity catalog_category_entity cataloginventory_stock_item"
   sales_tables="sales_order sales_order_item sales_order_grid"
   customer_tables="customer_entity customer_address_entity"
@@ -158,39 +158,60 @@ transfer_selected_tables() {
   echo "3) Sales Tables"
   echo "4) Customer Tables"
   echo "5) All Tables above"
-  read -p "Enter your choice (1, 2, 3, 4, 5): " choice
+  read -p "Enter your choice(s) (e.g. 1 3 for Core and Sales tables): " choices
 
   # Initialize the list of selected tables
   selected_tables=""
 
-  case $choice in
-    1)
-      selected_tables="$core_tables"
-      ;;
-    2)
-      selected_tables="$catalog_tables"
-      ;;
-    3)
-      selected_tables="$sales_tables"
-      ;;
-    4)
-      selected_tables="$customer_tables"
-      ;;
-    5)
-      selected_tables="$all_tables"
-      ;;
-    *)
-      echo "Invalid selection. No tables selected."
-      return
-      ;;
-  esac
+  # Loop through the user's choices
+  for choice in $choices; do
+    case $choice in
+      1)
+        selected_tables="$selected_tables $core_tables"
+        ;;
+      2)
+        selected_tables="$selected_tables $catalog_tables"
+        ;;
+      3)
+        selected_tables="$selected_tables $sales_tables"
+        ;;
+      4)
+        selected_tables="$selected_tables $customer_tables"
+        ;;
+      5)
+        selected_tables="$selected_tables $all_tables"
+        break  # No need to process further choices if 'All Tables' is selected
+        ;;
+      *)
+        echo "Invalid selection: $choice"
+        ;;
+    esac
+  done
 
-  echo "Transferring tables from category: $choice"
+  # Trim leading and trailing spaces from selected_tables
+  selected_tables=$(echo "$selected_tables" | xargs)
+
+  if [ -z "$selected_tables" ]; then
+    echo "No valid tables selected. Exiting..."
+    return
+  fi
+
+  echo "Transferring selected tables: $selected_tables"
+
   for table in $selected_tables; do
     echo "Transferring table: $table"
-    bin/cli mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -h"${MYSQL_HOST}" \
-      -e "REPLACE INTO ${old_db_name}.${table} SELECT * FROM ${new_db_name}.${table};"
+    bin/cli mysql -h"${MYSQL_HOST}" -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+        -e "SET FOREIGN_KEY_CHECKS = 0; DROP TABLE IF EXISTS ${old_db_name}.${table};"
+
+    bin/cli mysql -h"${MYSQL_HOST}" -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+        -e "CREATE TABLE ${old_db_name}.${table} LIKE ${new_db_name}.${table};"
+
+    bin/cli mysql -h"${MYSQL_HOST}" -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+        -e "INSERT INTO ${old_db_name}.${table} SELECT * FROM ${new_db_name}.${table};"
   done
+
+  bin/cli mysql -h"${MYSQL_HOST}" -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+      -e "SET FOREIGN_KEY_CHECKS = 1;"
 
   echo "Selected tables transferred successfully to '${old_db_name}'."
 }
