@@ -144,7 +144,7 @@ transfer_selected_tables() {
   local new_db_name="${old_db_name}_${timestamp}"
 
   # Define table lists for each category
-  core_tables="core_config_data admin_user admin_password"
+  core_tables="core_config_data admin_user admin_passwords"
   catalog_tables="catalog_product_entity catalog_category_entity cataloginventory_stock_item"
   sales_tables="sales_order sales_order_item sales_order_grid"
   customer_tables="customer_entity customer_address_entity"
