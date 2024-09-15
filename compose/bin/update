@@ -10,7 +10,7 @@ red=$(tput setaf 1)
 blue=$(tput setaf 4)
 
 # Define paths
-backup_dir="../backup_$(date +%Y%m%d%H%M%S)"
+backup_dir="./backup_$(date +%Y%m%d%H%M%S)"
 mkdir -p "$backup_dir"
 
 # Files to ignore in the root directory
