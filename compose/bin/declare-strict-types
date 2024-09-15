@@ -7,6 +7,7 @@ set -e
 # Use the provided path or default to app/code
 path=${1:-"app/code"}
 
+#echo "path: src/$path"
 # Find files to update
 files_to_update=$(grep -RL 'declare(strict_types=1)' "src/$path" --include="*.php" --include="*.phtml") || true
 
@@ -24,20 +25,7 @@ if [ -n "$files_to_update" ]; then
 
     for file in $files_to_update; do
         echo "Processing file: $file"
-
-        # Ensure we only insert declare(strict_types=1); after the first PHP opening tag
-        awk '
-        BEGIN { inserted = 0 }
-        /<\?php/ {
-            if (inserted == 0) {
-                print "<?php declare(strict_types=1);"
-                inserted = 1
-                next
-            }
-        }
-        { print }
-        ' "$file" > "$file.temp" || { echo "Error processing $file"; continue; }
-
+        awk '/<\?php/ {print; print ""; print "declare(strict_types=1);"; next} 1' "$file" > "$file.temp" || { echo "Error processing $file"; continue; }
         mv -f "$file.temp" "$file"
     done
 
