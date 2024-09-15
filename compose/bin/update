@@ -10,21 +10,39 @@ red=$(tput setaf 1)
 blue=$(tput setaf 4)
 
 # Define paths
-backup_dir="./backup_$(date +%Y%m%d%H%M%S)"
+backup_dir="backup_$(date +%Y%m%d%H%M%S)"
 mkdir -p "$backup_dir"
 
 # Files to ignore in the root directory
 ignore_files_root=("compose.dev.yaml" "compose.dev-linux.yaml" "compose.dev-ssh.yaml" "compose.healthcheck.yaml" "compose.yaml")
 
+# Directories to exclude from checking
+exclude_dirs=("dbdata" "src" "tmpupdate" "idea.workspace" ".idea")
+
+# Build the find exclude parameters, including directories starting with "backup"
+exclude_params=""
+for dir in "${exclude_dirs[@]}"; do
+    exclude_params="$exclude_params -path ./$dir -prune -o"
+done
+
+# Exclude directories starting with "backup"
+exclude_params="$exclude_params -name 'backup*' -prune -o"
+
+# Collect list of local files before updating, excluding specified directories
+local_files_before_update=$(eval "find . $exclude_params -type f -print")
+
 # Download the latest files to a temporary directory
 mkdir -p tmpupdate && cd tmpupdate
 curl -s https://raw.githubusercontent.com/Hawksama/docker-magento/master/lib/template | bash
 
+# Collect list of files in the update
+updated_files=$(find . -type f)
+
 # Loop through all files in the update
-for file in $(find . -type f); do
+for file in $updated_files; do
     # Construct the corresponding file path in the project directory
     local_file="../${file#./}"
-    backup_file="$backup_dir/${local_file#../}"
+    backup_file="../$backup_dir/${local_file#../}"
 
     # Get the base filename
     base_filename=$(basename "$local_file")
@@ -68,8 +86,41 @@ for file in $(find . -type f); do
     fi
 done
 
-# Clean up the temporary directory
 cd ..
+
+# Now, identify files that exist locally but not in the updated version
+echo "${bold}${blue}Checking for obsolete files...${normal}"
+for local_file in $local_files_before_update; do
+    # Get the base filename
+    base_filename=$(basename "$local_file")
+    file_dir=$(dirname "$local_file")
+
+    # Ignore specific files in the root directory
+    if [[ " ${ignore_files_root[@]} " =~ " ${base_filename} " && "$file_dir" == "." ]]; then
+        continue
+    fi
+
+    # Construct the corresponding file path in the update
+    update_file="tmpupdate/${local_file#./}"
+
+    # Check if the file exists in the update
+    if [ ! -f "$update_file" ]; then
+        # File exists locally but not in the update, prompt the user
+        echo "${yellow}The file $local_file no longer exists in the updated version.${normal}"
+        read -p "${yellow}Do you want to delete $local_file? [y/n] ${normal}" response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            # Backup the file before deleting
+            backup_file="$backup_dir/${local_file#./}"
+            mkdir -p "$(dirname "$backup_file")"
+            mv "$local_file" "$backup_file"
+            echo "${green}$local_file has been moved to $backup_file and deleted from the project.${normal}"
+        else
+            echo "${red}$local_file was not deleted.${normal}"
+        fi
+    fi
+done
+
+# Clean up the temporary directory
 rm -rf tmpupdate
 
-printf "\n${bold}${green}Your docker-magento files has been updated.${normal}"
+printf "\n${bold}${green}Your docker-magento files have been updated.${normal}\n"
