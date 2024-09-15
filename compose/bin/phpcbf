@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 
 # Source the configuration check script
-source bin/phpcs-config-check
+source bin/analyse-config-check
 
-# Determine the configuration to use
-CONFIG_FILE=$(determine_config)
+# Determine the configuration to use for PHPCS
+CONFIG_FILE=$(determine_config phpcs)
 
-echo "Using configuration file: $CONFIG_FILE"
+echo "Using configuration file: $CONFIG_FILE for PHP files"
 
 # Run phpcs with the determined configuration
 if [ "$CONFIG_FILE" = "Magento2" ]; then
     bin/clinotty vendor/bin/phpcbf --standard=Magento2 --extensions=php,phtml --error-severity=10 --ignore-annotations "$@"
 else
-    bin/clinotty vendor/bin/phpcbf --standard="$CONFIG_FILE" "$@"
+    bin/clinotty vendor/bin/phpcbf --standard="$CONFIG_FILE" --extensions=php,phtml "$@"
 fi
