@@ -8,20 +8,39 @@ fi
 
 CODE_PATH="$1"
 
+# Find PHP and PHTML files within the provided path
+PHP_FILES=$(bin/cli find "$CODE_PATH" -type f -name "*.php")
+PHTML_FILES=$(bin/cli find "$CODE_PATH" -type f -name "*.phtml")
+
 # Run PHP_CodeSniffer
 echo "Running PHP_CodeSniffer..."
-bin/phpcs "$CODE_PATH"
+bin/analyse-phpcs "$CODE_PATH"
 PHPCS_STATUS=$?
 
 # Run PHPMD
 echo "Running PHPMD..."
-bin/phpmd "$CODE_PATH"
+bin/analyse-phpmd "$CODE_PATH"
 PHPMD_STATUS=$?
 
-# Run PHPStan
-echo "Running PHPStan..."
-bin/phpstan "$CODE_PATH" --level 9
-PHPSTAN_STATUS=$?
+# Run PHPStan on PHP files
+if [ -n "$PHP_FILES" ]; then
+  echo "Running PHPStan on PHP files..."
+  bin/analyse-phpstan $PHP_FILES
+  PHPSTAN_STATUS=$?
+else
+  echo "No PHP files found for PHPStan."
+  PHPSTAN_STATUS=0
+fi
+
+# Run PHPStan on PHTML files
+if [ -n "$PHTML_FILES" ]; then
+  echo "Running PHPStan on PHTML files..."
+  bin/analyse-phpstan-phtml $PHTML_FILES
+  PHPSTAN_PHTML_STATUS=$?
+else
+  echo "No PHTML files found for PHPStan."
+  PHPSTAN_PHTML_STATUS=0
+fi
 
 # Check the status of each tool and display a summary
 echo
@@ -40,13 +59,19 @@ else
 fi
 
 if [ $PHPSTAN_STATUS -ne 0 ]; then
-  echo "PHPStan encountered errors."
+  echo "PHPStan (PHP files) encountered errors."
 else
-  echo "PHPStan passed without errors."
+  echo "PHPStan (PHP files) passed without errors."
+fi
+
+if [ $PHPSTAN_PHTML_STATUS -ne 0 ]; then
+  echo "PHPStan (PHTML files) encountered errors."
+else
+  echo "PHPStan (PHTML files) passed without errors."
 fi
 
 # Exit with a status code indicating overall success or failure
-if [ $PHPCS_STATUS -ne 0 ] || [ $PHPMD_STATUS -ne 0 ] || [ $PHPSTAN_STATUS -ne 0 ]; then
+if [ $PHPCS_STATUS -ne 0 ] || [ $PHPMD_STATUS -ne 0 ] || [ $PHPSTAN_STATUS -ne 0 ] || [ $PHPSTAN_PHTML_STATUS -ne 0 ]; then
   exit 1
 else
   exit 0

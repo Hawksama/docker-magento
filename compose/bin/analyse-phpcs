@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
 # Source the configuration check script
-source bin/phpcs-config-check
+source bin/analyse-config-check
 
-# Determine the configuration to use
-CONFIG_FILE=$(determine_config)
+# Determine the configuration to use for PHPCS
+CONFIG_FILE=$(determine_config phpcs)
+
+echo "Using configuration file: $CONFIG_FILE for PHPCS"
 
 # Run phpcs with the determined configuration
 if [ "$CONFIG_FILE" = "Magento2" ]; then

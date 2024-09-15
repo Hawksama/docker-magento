@@ -12,7 +12,6 @@ red=$(tput setaf 1)
 blue=$(tput setaf 4)
 
 # Define paths and placeholders
-LOCAL_CONFIG="phpcs.xml"
 PLACEHOLDER="placeholder"
 
 # Global variable for matching packages
@@ -89,30 +88,81 @@ reload_env_vars() {
     source env/coding-standards.env
 }
 
-# Function to determine the correct vendor configuration
+# Function to determine the correct vendor configuration for a given tool
 get_vendor_config() {
+    local tool="$1"
     local coding_standard_module=$(grep "^CODING_STANDARDS_MODULE=" env/coding-standards.env | awk -F= '{print $2}')
+    local vendor_path="vendor/$coding_standard_module"
 
     if [[ -n "$coding_standard_module" ]]; then
-        echo "vendor/$coding_standard_module/configs/phpcs/phpcs.xml"
+        case "$tool" in
+            phpcs)
+                echo "$vendor_path/configs/phpcs/phpcs.xml"
+                ;;
+            phpmd)
+                echo "$vendor_path/phpmd.xml"
+                ;;
+            phpstan)
+                echo "$vendor_path/configs/phpstan/phpstan.neon"
+                ;;
+            phpstan-phtml)
+                echo "$vendor_path/configs/phpstan/phpstan-phtmls.neon"
+                ;;
+            *)
+                echo ""
+                ;;
+        esac
     else
-        echo "$MAGENTO_CODING_STANDARD"
+        echo ""
     fi
 }
 
-# Function to determine which configuration to use
+# Function to determine which configuration to use for a given tool
 determine_config() {
-    if [ -f "$LOCAL_CONFIG" ]; then
-        echo "$LOCAL_CONFIG"
+    local tool="$1"
+    local local_config=""
+
+    case "$tool" in
+        phpcs)
+            local_config="phpcs.xml"
+            ;;
+        phpmd)
+            local_config="phpmd.xml"
+            ;;
+        phpstan)
+            local_config="phpstan.neon"
+            ;;
+        phpstan-phtml)
+            local_config="phpstan-phtmls.neon"
+            ;;
+        *)
+            local_config="${tool}.xml"
+            ;;
+    esac
+
+    if [ -f "$local_config" ]; then
+        echo "$local_config"
     else
-        VENDOR_CONFIG=$(get_vendor_config)
+        VENDOR_CONFIG=$(get_vendor_config "$tool")
         if bin/cli [ -f "$VENDOR_CONFIG" ]; then
             echo "$VENDOR_CONFIG"
         else
-            echo "Magento2"
+            # Default configurations
+            if [[ "$tool" == "phpcs" ]]; then
+                echo "Magento2"
+            elif [[ "$tool" == "phpmd" ]]; then
+                echo "cleancode,codesize,controversial,design,naming,unusedcode"
+            elif [[ "$tool" == "phpstan" ]]; then
+                echo "phpstan.neon"
+            elif [[ "$tool" == "phpstan-phtml" ]]; then
+                echo "phpstan-phtmls.neon"
+            else
+                echo ""
+            fi
         fi
     fi
 }
+
 
 # Function to find the path of the selected module
 find_module_path() {
@@ -161,11 +211,12 @@ main() {
         fi
     fi
 
-    # Display the configuration file being used
-    echo "Using configuration file: $(determine_config)"
+    # Optionally, display the configuration files being used
+    # echo "PHPCS Configuration: $(determine_config phpcs)"
+    # echo "PHPMD Configuration: $(determine_config phpmd)"
+    # echo "PHPStan Configuration: $(determine_config phpstan)"
 }
 
-# Run the main function
 main
 
 # Export the determine_config function for use by other scripts

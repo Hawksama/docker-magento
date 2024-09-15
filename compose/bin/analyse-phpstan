@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+# Source the configuration check script
+source bin/analyse-config-check
+
+# Determine the configuration to use for PHPStan
+CONFIG_FILE=$(determine_config phpstan)
+
+echo "Using configuration file: $CONFIG_FILE for PHPStan"
+
+# Run PHPStan with the determined configuration
+bin/cli vendor/bin/phpstan analyse "$@" --configuration="$CONFIG_FILE" --level=9
