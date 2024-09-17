@@ -10,11 +10,20 @@ blue=$(tput setaf 4)
 
 # Function to fix the SQL file by replacing the problematic collation
 fix_sql_file() {
-  original_file="$1"
-  fixed_file="${original_file%.sql}_fixed.sql"
+  local original_file="$1"
+  local fixed_file="${original_file%.sql}_fixed.sql"
 
-  cp "$original_file" "$fixed_file"
-  sed -i 's/utf8mb4_0900_ai_ci/utf8mb4_general_ci/g' "$fixed_file"
+  # Check if the file contains the problematic collation
+  if bin/cli grep -q 'utf8mb4_0900_ai_ci' "$original_file"; then
+    # Move the original file to a new fixed file
+    bin/cli cp "$original_file" "$fixed_file"
+
+    # Replace the problematic collation in the new file
+    bin/cli sed -i 's/utf8mb4_0900_ai_ci/utf8mb4_general_ci/g' "$fixed_file"
+  else
+    # No need to fix the file if the collation is not present
+    fixed_file="$original_file"  # Use the original file as is
+  fi
 
   echo "$fixed_file"
 }
@@ -42,16 +51,33 @@ select_file() {
   fi
 }
 
-# Function to import the selected SQL file
+# Function to handle archive files (unarchive if needed)
+unarchive_file() {
+  local file="$1"
+  local extension="${file##*.}"
+
+  if [ "$extension" = "gz" ]; then
+    local unzipped_file="${file%.gz}"
+    bin/cli gunzip -dv "$file"
+    echo "$unzipped_file"
+  else
+    echo "$file"
+  fi
+}
+
+# Function to import a SQL file into the new database
 import_sql_file() {
   local file="$1"
-  if [ "$extension" = "gz" ]; then
-    echo "${blue}${bold}Importing${normal} $file as a gzipped SQL file..."
-    bin/n98-magerun2 -v db:import -c gz "$file"
-  else
-    echo "${blue}${bold}Importing${normal} $file as an SQL file..."
-    bin/n98-magerun2 -v db:import "$file"
-  fi
+  echo "Using file: $file"
+
+  # Unarchive if needed and fix collation
+  local unarchived_file
+  unarchived_file=$(unarchive_file "$file")
+  local fixed_file
+  fixed_file=$(fix_sql_file "$unarchived_file")
+
+  echo "Importing $fixed_file into the new database..."
+  bin/n98-magerun2 -v db:import "$fixed_file"
 }
 
 # Main script
