@@ -45,12 +45,12 @@ if [ "$env_php_dist_engine" != "$current_search_engine" ]; then
 else
     case "$current_search_engine" in
         "elasticsearch7")
-            recommended_choice="2"
-            recommendation_message="${green}ElasticSuite is not configured. Elasticsearch is currently used and recommended.${normal}"
+            recommended_choice="1"
+            recommendation_message="${green}Elasticsearch is currently used and recommended.${normal}"
             ;;
         "elasticsuite")
-            recommended_choice="1"
-            recommendation_message="${green}Elasticsearch is not configured. ElasticSuite is currently used and recommended.${normal}"
+            recommended_choice="2"
+            recommendation_message="${green}ElasticSuite is currently used and recommended.${normal}"
             ;;
         *)
             recommended_choice="3"
