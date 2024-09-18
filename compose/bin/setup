@@ -112,7 +112,7 @@ fi
 # Check if auth.json exists to avoid Composer authentication errors
 bin/setup-composer-auth
 
-bin/check-broken-symlinks
+bin/check-broken-symlinks  --auto-delete
 # Check the exit status of the check-broken-symlinks script
 if [ $? != 0 ]; then
     echo "${red}Aborting script due to broken symlinks.${normal}"

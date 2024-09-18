@@ -1,26 +1,61 @@
 #!/usr/bin/env bash
 
+# Define text formatting
+bold=$(tput bold)
+normal=$(tput sgr0)
+green=$(tput setaf 2)
+yellow=$(tput setaf 3)
+red=$(tput setaf 1)
+blue=$(tput setaf 4)
+
 # Get the absolute path of the src folder
 REAL_SRC=$(cd -P "src" && pwd)
 
-echo "Checking for broken symlinks in $REAL_SRC..."
+echo "${bold}${blue}Checking for broken symlinks in $REAL_SRC...${normal}"
 
 # Initialize a flag to track if broken symlinks are found
 broken_symlinks_found=0
+auto_delete=0
+
+# Check if the --auto-delete parameter is passed
+if [ "$1" == "--auto-delete" ]; then
+    auto_delete=1
+fi
 
 # Find all symlinks in the src folder and check if they are broken
-find "$REAL_SRC" -type l | while read -r symlink; do
+while IFS= read -r symlink; do
     if [ ! -e "$symlink" ]; then
-        echo "Broken symlink found: $symlink"
+        echo "${bold}${red}Broken symlink found: $symlink${normal}"
         broken_symlinks_found=1
     fi
-done
+done < <(find "$REAL_SRC" -type l)
 
-# Check the flag and exit with an error code if broken symlinks are found
+# Handle broken symlinks
 if [ $broken_symlinks_found -eq 1 ]; then
-    echo "Error: Broken symlinks detected."
-    exit 1
+    if [ $auto_delete -eq 1 ]; then
+        # Automatically delete broken symlinks
+        echo "${bold}${yellow}Auto-deleting broken symlinks...${normal}"
+        find "$REAL_SRC" -type l ! -exec test -e {} \; -delete
+        echo "${bold}${green}Broken symlinks deleted successfully.${normal}"
+        exit 0
+    else
+        # Ask the user if they want to auto-delete broken symlinks
+        echo "${bold}${yellow}Error: Broken symlinks detected.${normal}"
+        read -p "${bold}${yellow}Do you want to automatically delete these symlinks? (y/n): ${normal}" response
+        case "$response" in
+            [yY][eE][sS]|[yY])
+                # Delete broken symlinks
+                find "$REAL_SRC" -type l ! -exec test -e {} \; -delete
+                echo "${bold}${green}Broken symlinks deleted successfully.${normal}"
+                exit 0
+                ;;
+            *)
+                echo "${bold}${yellow}Broken symlinks were not deleted.${normal}"
+                exit 1
+                ;;
+        esac
+    fi
 else
-    echo "No broken symlinks found."
+    echo "${bold}${green}No broken symlinks found.${normal}"
     exit 0
 fi
