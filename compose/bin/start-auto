@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -o errexit
+
+# Prompt the user to confirm if they want to proceed
+echo "This script will start Docker with all necessary services. Do you want to continue? (y/n)"
+read -r PROCEED
+
+if [[ "$PROCEED" != "y" && "$PROCEED" != "Y" ]]; then
+  echo "Operation aborted."
+  exit 0
+fi
+
+bin/start
