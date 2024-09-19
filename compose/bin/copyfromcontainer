@@ -11,22 +11,22 @@ REAL_SRC=$(cd -P "src" && pwd)
 # Get the container ID once to avoid repeated calls
 CONTAINER_ID=$(bin/docker-compose ps -q phpfpm)
 
-# Function to get the size of the directory or file
-get_size() {
-  local src_path=$1
-  docker exec "$CONTAINER_ID" du -sb "/var/www/html/$src_path" | awk '{print $1}'
-}
-
 # Function to get the size of the tarball
 get_tarball_size() {
   local src_path=$1
-  docker exec "$CONTAINER_ID" sh -c "tar -cf - -C /var/www/html $src_path | wc -c" | awk '{print $1}'
+  local src_dir=$(dirname "$src_path")
+  local src_base=$(basename "$src_path")
+  docker exec "$CONTAINER_ID" sh -c "tar -cf - -C /var/www/html/$src_dir $src_base | wc -c" | awk '{print $1}'
 }
 
 # Function to copy files with a progress bar and seconds counter
 copy_with_progress() {
   local src_path=$1
   local dest_path=$2
+
+  # Extract the directory and base name
+  local src_dir=$(dirname "$src_path")
+  local src_base=$(basename "$src_path")
 
   # Get the size of the tarball
   local total_size=$(get_tarball_size "$src_path")
@@ -35,7 +35,7 @@ copy_with_progress() {
   local start_time=$(date +%s)
 
   # Run the copy operation with a progress bar
-  docker exec "$CONTAINER_ID" tar -cf - -C /var/www/html "$src_path" | pv -s "$total_size" | tar -xf - -C "$dest_path"
+  docker exec "$CONTAINER_ID" tar -cf - -C "/var/www/html/$src_dir" "$src_base" | pv -s "$total_size" | tar -xf - -C "$dest_path"
 
   # Record the end time
   local end_time=$(date +%s)
