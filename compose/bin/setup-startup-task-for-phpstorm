@@ -5,8 +5,6 @@ check_xmlstarlet() {
   if ! command -v xmlstarlet &> /dev/null; then
     echo "xmlstarlet is not installed. Installing..."
     install_xmlstarlet
-  else
-    echo "xmlstarlet is already installed."
   fi
 }
 
