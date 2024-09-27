@@ -62,7 +62,6 @@ fix_sql_file() {
     bin/cli sed -i 's/utf8mb4_0900_ai_ci/utf8mb4_general_ci/g' "$fixed_file"
   else
     # No need to fix the file if the collation is not present
-    echo "No collation issues found in $original_file. No changes made."
     fixed_file="$original_file"  # Use the original file as is
   fi
 
