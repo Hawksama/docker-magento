@@ -41,6 +41,10 @@ bin/magento config:set 'web/secure/base_static_url' '{{secure_base_url}}static/'
 
 echo "Setting web/unsecure/base_static_url..."
 bin/magento config:set 'web/unsecure/base_static_url' '{{unsecure_base_url}}static/'
+
+echo "Setting web/url/use_store..."
+bin/magento config:set 'web/url/use_store' 1
+
 #
 #echo "Setting dev/static/sign..."
 #bin/magento config:set 'dev/static/sign' 0 --lock-env
