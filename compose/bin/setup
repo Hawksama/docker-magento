@@ -246,6 +246,9 @@ if [ -n "$MACSETUP" ]; then
     bin/copyfromcontainer generated
 fi
 
+echo "${blue}Update the store urls...${normal}"
+bin/update-urls "${DOMAIN}"
+
 echo "${green}Docker development environment setup complete.${normal}"
 echo "${green}You may now access your Magento instance at https://${DOMAIN}/${normal}"
 

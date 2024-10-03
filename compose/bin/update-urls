@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+set -o errexit
+
+# Function to display usage
+usage() {
+    echo "Usage: $0 <domain> [--all]"
+    echo "  --all                Update base URLs for all stores without prompting"
+    exit 1
+}
+
+# shellcheck source=../env/phpfpm.env
+source env/phpfpm.env
+
+DOMAIN=${MAGENTO_DOMAIN}
+
+# Determine whether to update all stores or prompt for selection
+UPDATE_ALL=false
+if [ "$1" == "--all" ]; then
+    UPDATE_ALL=true
+    shift # Shift past the --all argument
+fi
+
+# Function to check and install fzf if not installed
+install_fzf() {
+    if ! command -v fzf &> /dev/null; then
+        echo "fzf is not installed. Installing fzf..."
+        if [ "$(uname)" = "Darwin" ]; then
+            # macOS
+            brew install fzf
+        elif [ -f /etc/debian_version ]; then
+            # Debian-based
+            sudo apt-get update && sudo apt-get install -y fzf
+        elif [ -f /etc/redhat-release ]; then
+            # Red Hat-based
+            sudo yum install -y fzf
+        else
+            echo "Unsupported OS. Please install fzf manually."
+            exit 1
+        fi
+    fi
+}
+
+# Function to get a list of store codes
+get_store_codes() {
+    bin/magento store:list | awk -F'|' 'NR > 3 && $6 !~ /Code|admin/ {gsub(/ /,"",$6); print $6}'
+}
+
+# Function to prompt user to select stores using fzf
+prompt_store_selection() {
+    local store_codes=("$@")
+    local selected_stores
+
+    selected_stores=$(printf "%s\n" "${store_codes[@]}" | fzf --multi --height=40% --border --prompt="Select stores to update: " --header="Use TAB/SHIFT+TAB to select multiple stores" --info=inline)
+
+    if [[ -n "$selected_stores" ]]; then
+        echo "$selected_stores"
+    else
+        echo "No stores selected."
+        exit 0
+    fi
+}
+
+# Get store codes
+STORE_CODES=($(get_store_codes))
+
+if [ "$UPDATE_ALL" = true ]; then
+    SELECTED_STORES=("${STORE_CODES[@]}")
+else
+    # Check if fzf is installed
+    install_fzf
+
+    # Prompt user to select stores
+    SELECTED_STORES=($(prompt_store_selection "${STORE_CODES[@]}"))
+fi
+
+if [ ${#SELECTED_STORES[@]} -eq 0 ]; then
+    echo "No stores to update."
+    exit 0
+fi
+
+echo "Setting web/url/use_store..."
+bin/magento config:set 'web/url/use_store' 1  --lock-env
+
+echo "Updating base URLs for selected stores..."
+
+# Loop through each selected store and set base URLs
+for STORE_CODE in "${SELECTED_STORES[@]}"; do
+    echo "Updating base URLs for store: $STORE_CODE"
+
+    # Set base URLs for the store scope
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_url "https://${DOMAIN}/${STORE_CODE}/" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_url "https://${DOMAIN}/${STORE_CODE}/" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_link_url "{{unsecure_base_url}}" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_link_url "{{secure_base_url}}" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_media_url "{{unsecure_base_url}}media/" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_media_url "{{secure_base_url}}media/" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_static_url "{{unsecure_base_url}}static/" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_static_url "{{secure_base_url}}static/" --lock-env
+done
+
+echo "Updating base URLs for default scope"
+
+bin/magento config:set 'web/secure/base_url' "https://${DOMAIN}/"  --lock-env
+bin/magento config:set 'web/unsecure/base_url' "https://${DOMAIN}/"  --lock-env
+bin/magento config:set 'web/secure/base_link_url' "{{secure_base_url}}"  --lock-env
+bin/magento config:set 'web/unsecure/base_link_url' "{{unsecure_base_url}}"  --lock-env
+bin/magento config:set 'web/secure/base_media_url' "{{secure_base_url}}media/"  --lock-env
+bin/magento config:set 'web/unsecure/base_media_url' "{{unsecure_base_url}}media/"  --lock-env
+bin/magento config:set 'web/secure/base_static_url' "{{secure_base_url}}static/"  --lock-env
+bin/magento config:set 'web/unsecure/base_static_url' "{{unsecure_base_url}}static/"  --lock-env
+
+# Optionally, clear the cookie domain
+bin/magento config:set 'web/cookie/cookie_domain' '' --lock-env
+
+echo "Setting dev/static/sign..."
+bin/magento config:set 'dev/static/sign' 0 --lock-env
+
+echo "Setting admin/security/password_is_forced..."
+bin/magento config:set 'admin/security/password_is_forced' 0 --lock-env
+
+echo "Setting admin/security/password_lifetime..."
+bin/magento config:set 'admin/security/password_lifetime' 0 --lock-env
+
+echo "Setting dev/grid/async_indexing..."
+bin/magento config:set 'dev/grid/async_indexing' 0 --lock-env
+
+echo "Setting dev/js/minify_files..."
+bin/magento config:set 'dev/js/minify_files' 0 --lock-env
+
+echo "Setting dev/js/merge_files..."
+bin/magento config:set 'dev/js/merge_files' 0 --lock-env
+
+echo "Setting dev/js/enable_js_bundling..."
+bin/magento config:set 'dev/js/enable_js_bundling' 0 --lock-env
+
+echo "Setting dev/template/minify_html..."
+bin/magento config:set 'dev/template/minify_html' 0 --lock-env
+
+echo "Setting dev/css/merge_css_files..."
+bin/magento config:set 'dev/css/merge_css_files' 0 --lock-env
+
+echo "Setting dev/css/minify_files..."
+bin/magento config:set 'dev/css/minify_files' 0 --lock-env
+
+echo "Setting dev/css/use_css_critical_path..."
+bin/magento config:set 'dev/css/use_css_critical_path' 0 --lock-env
+
+echo "Setting dev/js/move_script_to_bottom..."
+bin/magento config:set 'dev/js/move_script_to_bottom' 0 --lock-env
+
+# Flush cache to apply changes
+echo "Flushing cache..."
+bin/magento cache:flush
