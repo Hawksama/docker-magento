@@ -246,9 +246,6 @@ if [ -n "$MACSETUP" ]; then
     bin/copyfromcontainer generated
 fi
 
-echo "${blue}Update the store urls...${normal}"
-bin/update-urls "${DOMAIN}"
-
 echo "${green}Docker development environment setup complete.${normal}"
 echo "${green}You may now access your Magento instance at https://${DOMAIN}/${normal}"
 
@@ -258,5 +255,8 @@ elapsed_seconds=$(( end_time - start_time ))
 # Convert total seconds to minutes and seconds
 elapsed_minutes=$(( elapsed_seconds / 60 ))
 remaining_seconds=$(( elapsed_seconds % 60 ))
+
+echo "${blue}Update the store urls...${normal}"
+bin/update-urls "${DOMAIN}"
 
 echo "${blue}Total execution time: ${elapsed_minutes} minute(s) and ${remaining_seconds} second(s)${normal}"
