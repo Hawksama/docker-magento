@@ -90,8 +90,8 @@ for STORE_CODE in "${SELECTED_STORES[@]}"; do
     # Set base URLs for the store scope
     bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_url "https://${DOMAIN}/${STORE_CODE}/" --lock-env
     bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_url "https://${DOMAIN}/${STORE_CODE}/" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_link_url "{{unsecure_base_url}}" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_link_url "{{secure_base_url}}" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_link_url "https://${DOMAIN}/" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_link_url "https://${DOMAIN}/" --lock-env
     bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_media_url "https://${DOMAIN}/media/" --lock-env
     bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_media_url "https://${DOMAIN}/media/" --lock-env
     bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_static_url "https://${DOMAIN}/static/" --lock-env
