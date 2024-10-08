@@ -92,10 +92,10 @@ for STORE_CODE in "${SELECTED_STORES[@]}"; do
     bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_url "https://${DOMAIN}/${STORE_CODE}/" --lock-env
     bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_link_url "{{unsecure_base_url}}" --lock-env
     bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_link_url "{{secure_base_url}}" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_media_url "{{unsecure_base_url}}media/" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_media_url "{{secure_base_url}}media/" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_static_url "{{unsecure_base_url}}static/" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_static_url "{{secure_base_url}}static/" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_media_url "https://${DOMAIN}/media/" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_media_url "https://${DOMAIN}/media/" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_static_url "https://${DOMAIN}/static/" --lock-env
+    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_static_url "https://${DOMAIN}/static/" --lock-env
 done
 
 echo "Updating base URLs for default scope"
