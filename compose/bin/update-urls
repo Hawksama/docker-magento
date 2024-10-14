@@ -148,6 +148,12 @@ bin/magento config:set 'dev/css/use_css_critical_path' 0 --lock-env
 echo "Setting dev/js/move_script_to_bottom..."
 bin/magento config:set 'dev/js/move_script_to_bottom' 0 --lock-env
 
+echo "Enabling template hints..."
+bin/magento dev:template-hints:enable;
+bin/magento config:set 'dev/debug/template_hints_storefront_show_with_parameter' 1 --lock-env
+bin/magento config:set 'dev/debug/template_hints_parameter_value' 'true' --lock-env
+bin/magento config:set 'dev/restrict/allow_ips' '' --lock-env
+
 # Flush cache to apply changes
 echo "Flushing cache..."
 bin/magento cache:flush
