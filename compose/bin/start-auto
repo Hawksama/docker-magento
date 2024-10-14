@@ -11,3 +11,5 @@ if [[ "$PROCEED" != "y" && "$PROCEED" != "Y" ]]; then
 fi
 
 bin/start
+
+bin/xdebug disable
