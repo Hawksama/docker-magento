@@ -4,17 +4,18 @@
 source env/phpfpm.env
 
 # Define the configuration details for PHP Remote Debug
-CONFIG_NAME_PHP_REMOTE_DEBUG="${XDEBUG_SERVER_NAME}"
-CONFIG_FILE_PHP_REMOTE_DEBUG=".idea/runConfigurations/${CONFIG_NAME_PHP_REMOTE_DEBUG// /_}.xml"
+CONFIG_FILE_PHP_REMOTE_DEBUG=".idea/runConfigurations/PHP_Remote_xDebug.xml"
 CONFIG_NAME_XDEBUG="RunXdebug"
+PROJECT_DIR=$(pwd)
+WORKSPACE_FILE=".idea/workspace.xml"
 
 # **Create the .idea/runConfigurations directory**
 mkdir -p .idea/runConfigurations
 
 # Generate the XML content for the PHP Remote Debug configuration
-cat <<EOL > $CONFIG_FILE_PHP_REMOTE_DEBUG
+cat <<EOL > "$CONFIG_FILE_PHP_REMOTE_DEBUG"
 <component name="ProjectRunConfigurationManager">
-  <configuration name="$CONFIG_NAME_PHP_REMOTE_DEBUG" type="PhpRemoteDebugRunConfigurationType" factoryName="PHP Remote Debug" filter_connections="FILTER" server_name="$CONFIG_NAME_PHP_REMOTE_DEBUG" session_id="PHPSTORM">
+  <configuration name="PHP Remote xDebug" type="PhpRemoteDebugRunConfigurationType" factoryName="PHP Remote Debug" server_name="${XDEBUG_SERVER_NAME}" session_id="PHPSTORM">
     <method v="2">
       <option name="RunConfigurationTask" enabled="true" run_configuration_name="$CONFIG_NAME_XDEBUG" run_configuration_type="ShConfigurationType" />
     </method>
@@ -22,4 +23,72 @@ cat <<EOL > $CONFIG_FILE_PHP_REMOTE_DEBUG
 </component>
 EOL
 
-echo "PhpStorm Run/Debug Configuration '$CONFIG_NAME_PHP_REMOTE_DEBUG' created successfully at $CONFIG_FILE_PHP_REMOTE_DEBUG."
+echo "PhpStorm Run/Debug Configuration 'PHP Remote xDebug' created successfully at $CONFIG_FILE_PHP_REMOTE_DEBUG."
+
+# Ensure workspace.xml exists
+if [ ! -f "$WORKSPACE_FILE" ]; then
+  # Create a basic workspace.xml structure
+  cat <<EOF > "$WORKSPACE_FILE"
+<project version="4">
+</project>
+EOF
+  echo "Created workspace.xml with initial configuration."
+fi
+
+# Ensure xmlstarlet is installed
+if ! command -v xmlstarlet &> /dev/null; then
+  echo "xmlstarlet is not installed. Please install it and rerun the script."
+  exit 1
+fi
+
+# Function to add PhpServers component and server configuration
+add_php_server() {
+  SERVER_NAME="${XDEBUG_SERVER_NAME}"
+  SERVER_HOST="${XDEBUG_SERVER_NAME}"
+  SERVER_ID=$(uuidgen)
+  LOCAL_ROOT="$PROJECT_DIR/src"
+  REMOTE_ROOT="/var/www/html"
+
+  # Check if PhpServers component exists
+  if ! xmlstarlet sel -t -c "/project/component[@name='PhpServers']" "$WORKSPACE_FILE" &> /dev/null; then
+    # Add PhpServers component
+    xmlstarlet ed -L \
+      -s "/project" -t elem -n "component" -v "" \
+      -a "/project/component[last()]" -t attr -n "name" -v "PhpServers" \
+      "$WORKSPACE_FILE"
+    echo "Added PhpServers component to workspace.xml."
+  fi
+
+  # Check if the server already exists
+  if ! xmlstarlet sel -t -c "/project/component[@name='PhpServers']/servers/server[@host='${SERVER_HOST}']" "$WORKSPACE_FILE" &> /dev/null; then
+    # Add servers element if it doesn't exist
+    if ! xmlstarlet sel -t -c "/project/component[@name='PhpServers']/servers" "$WORKSPACE_FILE" &> /dev/null; then
+      xmlstarlet ed -L \
+        -s "/project/component[@name='PhpServers']" -t elem -n "servers" -v "" \
+        "$WORKSPACE_FILE"
+    fi
+
+    # Add the server configuration
+    xmlstarlet ed -L \
+      -s "/project/component[@name='PhpServers']/servers" -t elem -n "server" -v "" \
+      -i "/project/component[@name='PhpServers']/servers/server[last()]" -t attr -n "host" -v "${SERVER_HOST}" \
+      -i "/project/component[@name='PhpServers']/servers/server[last()]" -t attr -n "id" -v "${SERVER_ID}" \
+      -i "/project/component[@name='PhpServers']/servers/server[last()]" -t attr -n "name" -v "${SERVER_NAME}" \
+      -i "/project/component[@name='PhpServers']/servers/server[last()]" -t attr -n "port" -v "80" \
+      -i "/project/component[@name='PhpServers']/servers/server[last()]" -t attr -n "use_path_mappings" -v "true" \
+      -s "/project/component[@name='PhpServers']/servers/server[last()]" -t elem -n "path_mappings" -v "" \
+      -s "/project/component[@name='PhpServers']/servers/server[last()]/path_mappings" -t elem -n "mapping" -v "" \
+      -a "/project/component[@name='PhpServers']/servers/server[last()]/path_mappings/mapping" -t attr -n "local-root" -v "${LOCAL_ROOT}" \
+      -a "/project/component[@name='PhpServers']/servers/server[last()]/path_mappings/mapping" -t attr -n "remote-root" -v "${REMOTE_ROOT}" \
+      "$WORKSPACE_FILE"
+
+    echo "Added server '${SERVER_NAME}' with path mappings to PhpServers in workspace.xml."
+  else
+    echo "Server '${SERVER_NAME}' already exists in PhpServers."
+  fi
+}
+
+# Call the function to add the PHP server
+add_php_server
+
+echo "PhpServers configuration updated in workspace.xml."
