@@ -30,3 +30,79 @@ cat <<EOL > $CONFIG_FILE_START_DOCKER
 EOL
 
 echo "PhpStorm Run/Debug Configuration '$CONFIG_NAME_START_DOCKER' created successfully at $CONFIG_FILE_START_DOCKER."
+
+WORKSPACE_FILE=".idea/workspace.xml"
+
+# Check if workspace.xml exists
+if [ ! -f "$WORKSPACE_FILE" ]; then
+  # Create a basic workspace.xml structure if it doesn't exist
+  cat <<EOF > $WORKSPACE_FILE
+<project version="4">
+  <component name="RunManager" selected="Sh.${CONFIG_NAME_START_DOCKER// /_}">
+    <list>
+      <item itemvalue="Sh.${CONFIG_NAME_START_DOCKER// /_}" />
+    </list>
+  </component>
+  <component name="ProjectRunConfigurationManager" />
+  <component name="ProjectStartupLocalConfiguration">
+    <configurations>
+      <configuration id="Shell Script.${CONFIG_NAME_START_DOCKER// /_}" name="$CONFIG_NAME_START_DOCKER" />
+    </configurations>
+  </component>
+</project>
+EOF
+  echo "Created workspace.xml with initial configuration."
+else
+  # Check if <component name="RunManager"> exists
+  if xmlstarlet sel -t -c "//component[@name='RunManager']" "$WORKSPACE_FILE" > /dev/null; then
+    # Add the new <item> if not already present
+    if ! xmlstarlet sel -t -v "//component[@name='RunManager']//item[@itemvalue='Sh.${CONFIG_NAME_START_DOCKER// /_}']" "$WORKSPACE_FILE" > /dev/null; then
+      xmlstarlet ed -L \
+        -s "//component[@name='RunManager']/list" -t elem -n "item" -v "" \
+        -a "//component[@name='RunManager']/list/item[last()]" -t attr -n "itemvalue" -v "Sh.${CONFIG_NAME_START_DOCKER// /_}" \
+        "$WORKSPACE_FILE"
+      echo "Added new item for '$CONFIG_NAME_START_DOCKER' to the existing RunManager in workspace.xml."
+    else
+      echo "Item for '$CONFIG_NAME_START_DOCKER' already exists in RunManager."
+    fi
+  else
+    # Create the <component name="RunManager"> if it doesn't exist
+    xmlstarlet ed -L \
+      -s "/project" -t elem -n "component" -v "" \
+      -a "/project/component[last()]" -t attr -n "name" -v "RunManager" \
+      -a "/project/component[last()]" -t attr -n "selected" -v "Sh.${CONFIG_NAME_START_DOCKER// /_}" \
+      -s "/project/component[last()]" -t elem -n "list" -v "" \
+      -s "/project/component[last()]/list" -t elem -n "item" -v "" \
+      -a "/project/component[last()]/list/item[last()]" -t attr -n "itemvalue" -v "Sh.${CONFIG_NAME_START_DOCKER// /_}" \
+      "$WORKSPACE_FILE"
+    echo "Created RunManager component and added item for '$CONFIG_NAME_START_DOCKER' in workspace.xml."
+  fi
+
+  # Check if <component name="ProjectStartupLocalConfiguration"> exists
+  if xmlstarlet sel -t -c "//component[@name='ProjectStartupLocalConfiguration']" "$WORKSPACE_FILE" > /dev/null; then
+    # Add the new configuration ID if not already present
+    if ! xmlstarlet sel -t -v "//component[@name='ProjectStartupLocalConfiguration']//configuration[@id='Shell Script.${CONFIG_NAME_START_DOCKER// /_}']" "$WORKSPACE_FILE" > /dev/null; then
+      xmlstarlet ed -L \
+        -s "//component[@name='ProjectStartupLocalConfiguration']/configurations" -t elem -n "configuration" -v "" \
+        -a "//component[@name='ProjectStartupLocalConfiguration']/configurations/configuration[last()]" -t attr -n "id" -v "Shell Script.${CONFIG_NAME_START_DOCKER// /_}" \
+        -a "//component[@name='ProjectStartupLocalConfiguration']/configurations/configuration[last()]" -t attr -n "name" -v "$CONFIG_NAME_START_DOCKER" \
+        "$WORKSPACE_FILE"
+      echo "Added new startup configuration for '$CONFIG_NAME_START_DOCKER' to ProjectStartupLocalConfiguration in workspace.xml."
+    else
+      echo "Configuration ID for '$CONFIG_NAME_START_DOCKER' already exists in ProjectStartupLocalConfiguration."
+    fi
+  else
+    # Create the <component name="ProjectStartupLocalConfiguration"> if it doesn't exist
+    xmlstarlet ed -L \
+      -s "/project" -t elem -n "component" -v "" \
+      -a "/project/component[last()]" -t attr -n "name" -v "ProjectStartupLocalConfiguration" \
+      -s "/project/component[last()]" -t elem -n "configurations" -v "" \
+      -s "/project/component[last()]/configurations" -t elem -n "configuration" -v "" \
+      -a "/project/component[last()]/configurations/configuration[last()]" -t attr -n "id" -v "Shell Script.${CONFIG_NAME_START_DOCKER// /_}" \
+      -a "/project/component[last()]/configurations/configuration[last()]" -t attr -n "name" -v "$CONFIG_NAME_START_DOCKER" \
+      "$WORKSPACE_FILE"
+    echo "Created ProjectStartupLocalConfiguration component and added configuration for '$CONFIG_NAME_START_DOCKER' in workspace.xml."
+  fi
+fi
+
+echo "Startup task for '$CONFIG_NAME_START_DOCKER' registered in PhpStorm workspace."

@@ -41,31 +41,3 @@ check_xmlstarlet
 bin/phpstorm-create-autostart-docker
 bin/phpstorm-start-xdebug
 bin/phpstorm-create-remote-debug
-
-# Check for workspace.xml file
-WORKSPACE_FILE=".idea/workspace.xml"
-if [ ! -f "$WORKSPACE_FILE" ]; then
-  # Create a basic workspace.xml structure if it doesn't exist
-  cat <<EOF > $WORKSPACE_FILE
-<project version="4">
-  <component name="RunManager" selected="PhpRemoteDebug.${XDEBUG_SERVER_NAME// /_}">
-    <list>
-      <item itemvalue="Sh.StartDockerMagento" />
-      <item itemvalue="Sh.RunXdebug" />
-      <item itemvalue="PhpRemoteDebug.${XDEBUG_SERVER_NAME// /_}" />
-    </list>
-  </component>
-  <component name="ProjectRunConfigurationManager" />
-  <component name="ProjectStartupLocalConfiguration">
-    <configurations>
-      <configuration id="Shell Script.StartDockerMagento" name="StartDockerMagento" />
-      <configuration id="Shell Script.RunXdebug" name="RunXdebug" />
-      <configuration id="PHP Remote Debug.${XDEBUG_SERVER_NAME// /_}" name="${XDEBUG_SERVER_NAME}" />
-    </configurations>
-  </component>
-</project>
-EOF
-  echo "Created workspace.xml with initial configuration."
-else
-  echo "workspace.xml already exists. You may want to edit it manually."
-fi
