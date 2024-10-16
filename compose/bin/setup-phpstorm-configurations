@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# Function to check if xmlstarlet is installed
+check_xmlstarlet() {
+  if ! command -v xmlstarlet &> /dev/null; then
+    echo "xmlstarlet is not installed. Installing..."
+    install_xmlstarlet
+  fi
+}
+
+# Function to install xmlstarlet
+install_xmlstarlet() {
+  if [ "$(uname)" == "Darwin" ]; then
+    # macOS
+    if command -v brew &> /dev/null; then
+      brew install xmlstarlet
+    else
+      echo "Homebrew is not installed. Please install Homebrew and try again."
+      exit 1
+    fi
+  elif [ -x "$(command -v apt-get)" ]; then
+    # Debian/Ubuntu
+    sudo apt-get update
+    sudo apt-get install -y xmlstarlet
+  elif [ -x "$(command -v yum)" ]; then
+    # RHEL/CentOS
+    sudo yum install -y xmlstarlet
+  elif [ -x "$(command -v dnf)" ]; then
+    # Fedora
+    sudo dnf install -y xmlstarlet
+  else
+    echo "Unsupported operating system. Please install xmlstarlet manually."
+    exit 1
+  fi
+}
+
+# Check and install xmlstarlet if necessary
+check_xmlstarlet
+
+# Call the individual configuration scripts
+bin/phpstorm-create-autostart-docker
+bin/phpstorm-start-xdebug
+bin/phpstorm-create-remote-debug
+
+# Check for workspace.xml file
+WORKSPACE_FILE=".idea/workspace.xml"
+if [ ! -f "$WORKSPACE_FILE" ]; then
+  # Create a basic workspace.xml structure if it doesn't exist
+  cat <<EOF > $WORKSPACE_FILE
+<project version="4">
+  <component name="RunManager" selected="PhpRemoteDebug.${XDEBUG_SERVER_NAME// /_}">
+    <list>
+      <item itemvalue="Sh.StartDockerMagento" />
+      <item itemvalue="Sh.RunXdebug" />
+      <item itemvalue="PhpRemoteDebug.${XDEBUG_SERVER_NAME// /_}" />
+    </list>
+  </component>
+  <component name="ProjectRunConfigurationManager" />
+  <component name="ProjectStartupLocalConfiguration">
+    <configurations>
+      <configuration id="Shell Script.StartDockerMagento" name="StartDockerMagento" />
+      <configuration id="Shell Script.RunXdebug" name="RunXdebug" />
+      <configuration id="PHP Remote Debug.${XDEBUG_SERVER_NAME// /_}" name="${XDEBUG_SERVER_NAME}" />
+    </configurations>
+  </component>
+</project>
+EOF
+  echo "Created workspace.xml with initial configuration."
+else
+  echo "workspace.xml already exists. You may want to edit it manually."
+fi

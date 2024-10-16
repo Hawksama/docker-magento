@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Define the configuration details for RunXdebug
+CONFIG_NAME_XDEBUG="RunXdebug"
+CONFIG_FILE_XDEBUG=".idea/runConfigurations/${CONFIG_NAME_XDEBUG// /_}.xml"
+PROJECT_DIR=$(pwd)
+
+# **Create the .idea/runConfigurations directory**
+mkdir -p .idea/runConfigurations
+
+# Generate the XML content for the Xdebug configuration
+cat <<EOL > $CONFIG_FILE_XDEBUG
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="$CONFIG_NAME_XDEBUG" type="ShConfigurationType" factoryName="Shell Script">
+    <option name="SCRIPT_TEXT" value="" />
+    <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+    <option name="SCRIPT_PATH" value="$PROJECT_DIR/bin/xdebug" />
+    <option name="SCRIPT_OPTIONS" value="enabled" />
+    <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR" />
+    <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+    <option name="INTERPRETER_PATH" value="/bin/bash" />
+    <option name="INTERPRETER_OPTIONS" value="" />
+    <option name="EXECUTE_IN_TERMINAL" value="true" />
+    <option name="EXECUTE_SCRIPT_FILE" value="true" />
+    <envs />
+    <method v="2" />
+  </configuration>
+</component>
+EOL
+
+echo "PhpStorm Run/Debug Configuration '$CONFIG_NAME_XDEBUG' created successfully at $CONFIG_FILE_XDEBUG."

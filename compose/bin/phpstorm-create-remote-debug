@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# shellcheck source=../env/phpfpm.env
+source env/phpfpm.env
+
+# Define the configuration details for PHP Remote Debug
+CONFIG_NAME_PHP_REMOTE_DEBUG="${XDEBUG_SERVER_NAME}"
+CONFIG_FILE_PHP_REMOTE_DEBUG=".idea/runConfigurations/${CONFIG_NAME_PHP_REMOTE_DEBUG// /_}.xml"
+CONFIG_NAME_XDEBUG="RunXdebug"
+
+# **Create the .idea/runConfigurations directory**
+mkdir -p .idea/runConfigurations
+
+# Generate the XML content for the PHP Remote Debug configuration
+cat <<EOL > $CONFIG_FILE_PHP_REMOTE_DEBUG
+<component name="ProjectRunConfigurationManager">
+  <configuration name="$CONFIG_NAME_PHP_REMOTE_DEBUG" type="PhpRemoteDebugRunConfigurationType" factoryName="PHP Remote Debug" filter_connections="FILTER" server_name="$CONFIG_NAME_PHP_REMOTE_DEBUG" session_id="PHPSTORM">
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="$CONFIG_NAME_XDEBUG" run_configuration_type="ShConfigurationType" />
+    </method>
+  </configuration>
+</component>
+EOL
+
+echo "PhpStorm Run/Debug Configuration '$CONFIG_NAME_PHP_REMOTE_DEBUG' created successfully at $CONFIG_FILE_PHP_REMOTE_DEBUG."
