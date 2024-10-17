@@ -43,8 +43,6 @@ if [ $PHPCS_STATUS -ne 0 ]; then
     echo -e "$PHPCS_RESULT" | while IFS= read -r line; do
         error "$line"
     done
-else
-    success "PHPCS passed without errors."
 fi
 
 # Exit with the status of the PHPCS command
