@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 
+# ANSI color codes
+GREEN="\033[0;32m"
+RED="\033[0;31m"
+RESET="\033[0m"
+
+success() {
+  echo -e "${GREEN}$1${RESET}"
+}
+
+error() {
+  echo -e "${RED}$1${RESET}"
+}
+
 # Source the configuration check script
 source bin/analyse-config-check
 
@@ -9,4 +22,16 @@ CONFIG_FILE=$(determine_config phpmd)
 echo "Using configuration file: $CONFIG_FILE for PHP Mess Detector"
 
 # Run PHPMD with the determined configuration
-bin/cli vendor/bin/phpmd "$@" text "$CONFIG_FILE"
+PHPMD_RESULT=$(bin/cli vendor/bin/phpmd "$@" text "$CONFIG_FILE" 2>&1)
+PHPMD_STATUS=$?
+
+# Check the result and display output accordingly
+if [ $PHPMD_STATUS -ne 0 ]; then
+    error "PHPMD encountered errors:\n"
+    echo -e "$PHPMD_RESULT" | while IFS= read -r line; do
+        error "$line"
+    done
+fi
+
+# Exit with the status of the PHPMD command
+exit $PHPMD_STATUS

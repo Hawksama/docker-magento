@@ -1,5 +1,24 @@
 #!/usr/bin/env bash
 
+# ANSI color codes
+GREEN="\033[0;32m"
+RED="\033[0;31m"
+CYAN="\033[0;36m"
+RESET="\033[0m"
+
+# Helper function for colored messages
+info() {
+  echo -e "${CYAN}$1${RESET}"
+}
+
+success() {
+  echo -e "${GREEN}$1${RESET}"
+}
+
+error() {
+  echo -e "${RED}$1${RESET}"
+}
+
 # Source the configuration check script
 source bin/analyse-config-check
 
@@ -10,8 +29,23 @@ echo "Using configuration file: $CONFIG_FILE for PHPCS"
 
 # Run phpcs with the determined configuration
 if [ "$CONFIG_FILE" = "Magento2" ]; then
-    bin/clinotty vendor/bin/phpcs --standard=Magento2 --exclude=Magento2.CodeAnalysis.EmptyBlock \
-    --extensions=php,phtml --error-severity=10 --ignore-annotations "$@"
+    PHPCS_RESULT=$(bin/clinotty vendor/bin/phpcs --standard=Magento2 --exclude=Magento2.CodeAnalysis.EmptyBlock \
+    --extensions=php,phtml --error-severity=10 --ignore-annotations "$@" 2>&1)
 else
-    bin/clinotty vendor/bin/phpcs --standard="$CONFIG_FILE" "$@"
+    PHPCS_RESULT=$(bin/clinotty vendor/bin/phpcs --standard="$CONFIG_FILE" "$@" 2>&1)
 fi
+
+PHPCS_STATUS=$?
+
+# Check the result and display output accordingly
+if [ $PHPCS_STATUS -ne 0 ]; then
+    error "PHPCS encountered errors:\n"
+    echo -e "$PHPCS_RESULT" | while IFS= read -r line; do
+        error "$line"
+    done
+else
+    success "PHPCS passed without errors."
+fi
+
+# Exit with the status of the PHPCS command
+exit $PHPCS_STATUS
