@@ -9,4 +9,4 @@ CONFIG_FILE=$(determine_config phpstan)
 echo "Using configuration file: $CONFIG_FILE for PHPStan"
 
 # Run PHPStan with the determined configuration
-bin/cli vendor/bin/phpstan analyse "$@" --configuration="$CONFIG_FILE" --level=9
+bin/cli vendor/bin/phpstan analyse "$@" --configuration="$CONFIG_FILE"
