@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+# ANSI color codes
+GREEN="\033[0;32m"
+RED="\033[0;31m"
+RESET="\033[0m"
+
+success() {
+  echo -e "${GREEN}$1${RESET}"
+}
+
+error() {
+  echo -e "${RED}$1${RESET}"
+}
+
+# Source the configuration check script
+source bin/analyse-config-check
+
+# Check if any arguments are provided
+if [ "$#" -eq 0 ]; then
+    error "No files or directories specified."
+    exit 1
+fi
+
+# Build the list of files to analyze
+FILES=()
+
+# Function to collect PHP and PHTML files inside Docker
+collect_files_inside_docker() {
+    local ARG="$1"
+    local FOUND_FILES
+
+    if bin/cli [ -d "$ARG" ]; then
+        # It's a directory inside Docker
+        FOUND_FILES=$(bin/cli find "$ARG" -type f \( -name "*.php" -o -name "*.phtml" \) 2>/dev/null)
+        if [ -n "$FOUND_FILES" ]; then
+            # Read the output into an array
+            while IFS= read -r FILE; do
+                FILES+=("$FILE")
+            done <<< "$FOUND_FILES"
+        else
+            error "No PHP or PHTML files found in directory: $ARG"
+        fi
+    elif bin/cli [ -f "$ARG" ]; then
+        # It's a file inside Docker
+        FILES+=("$ARG")
+    else
+        error "File or directory not found inside Docker: $ARG"
+    fi
+}
+
+# Process each argument
+for ARG in "$@"; do
+    collect_files_inside_docker "$ARG"
+done
+
+if [ ${#FILES[@]} -eq 0 ]; then
+    error "No PHP or PHTML files to analyze."
+    exit 1
+fi
+
+# Prepare the list of files as a space-separated string
+FILE_LIST="${FILES[@]}"
+
+# Run PHPMND inside Docker via bin/cli
+PHPMND_RESULT=$(bin/cli vendor/bin/phpmnd $FILE_LIST text 2>&1)
+PHPMND_STATUS=$?
+
+# Check the result and display output accordingly
+if [ $PHPMND_STATUS -ne 0 ]; then
+    error "PHPMagicNumberDetector encountered errors:"
+    echo "$PHPMND_RESULT" | while IFS= read -r line; do
+        error "$line"
+    done
+else
+    success "PHPMagicNumberDetector completed successfully."
+    echo "$PHPMND_RESULT"
+fi
+
+# Exit with the status of the PHPMND command
+exit $PHPMND_STATUS

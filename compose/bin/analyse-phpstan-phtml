@@ -9,5 +9,5 @@ CONFIG_FILE=$(determine_config phpstan-phtml)
 echo "Using configuration file: $CONFIG_FILE for PHPStan PHTML"
 
 # Run PHPStan with the determined configuration
-bin/cli vendor/bin/phpstan analyse "$@" --configuration="$CONFIG_FILE" --level=2
+bin/cli vendor/bin/phpstan analyse "$@" --configuration="$CONFIG_FILE"
 

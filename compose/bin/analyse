@@ -47,6 +47,11 @@ info "\nRunning PHPMD..."
 bin/analyse-phpmd "$CODE_PATH"
 PHPMD_STATUS=$?
 
+# Run PHPMagicNumberDetector
+info "\nRunning PHPMagicNumberDetector..."
+bin/analyse-phpmnd "$CODE_PATH"
+PHPMND_STATUS=$?
+
 # Run PHPStan on PHP files
 if [ -n "$PHP_FILES" ]; then
   info "\nRunning PHPStan on PHP files..."
@@ -81,6 +86,12 @@ if [ $PHPMD_STATUS -ne 0 ]; then
   error "PHPMD encountered errors."
 else
   success "PHPMD passed without errors."
+fi
+
+if [ $PHPMND_STATUS -ne 0 ]; then
+  error "PHPMagicNumberDetector encountered errors."
+else
+  success "PHPMagicNumberDetector passed without errors."
 fi
 
 if [ $PHPSTAN_STATUS -ne 0 ]; then

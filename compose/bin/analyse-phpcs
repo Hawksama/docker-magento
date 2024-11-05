@@ -32,7 +32,7 @@ if [ "$CONFIG_FILE" = "Magento2" ]; then
     PHPCS_RESULT=$(bin/clinotty vendor/bin/phpcs --standard=Magento2 --exclude=Magento2.CodeAnalysis.EmptyBlock \
     --extensions=php,phtml --error-severity=10 --ignore-annotations "$@" 2>&1)
 else
-    PHPCS_RESULT=$(bin/clinotty vendor/bin/phpcs --standard="$CONFIG_FILE" "$@" 2>&1)
+    PHPCS_RESULT=$(bin/clinotty vendor/bin/phpcs --standard="$CONFIG_FILE" --extensions=php,phtml "$@" 2>&1)
 fi
 
 PHPCS_STATUS=$?
