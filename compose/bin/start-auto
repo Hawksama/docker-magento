@@ -16,7 +16,7 @@ source env/phpfpm.env
 
 # Display a header
 echo "${cyan}${bold}========================================"
-echo "      Magento Docker Startup Script"
+echo "      Docker Magento  Startup Script"
 echo "========================================${normal}"
 
 # Prompt the user to confirm if they want to proceed
