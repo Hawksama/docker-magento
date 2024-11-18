@@ -1,15 +1,54 @@
 #!/usr/bin/env bash
 set -o errexit
 
+# Define text formatting
+bold=$(tput bold)
+normal=$(tput sgr0)
+green=$(tput setaf 2)
+yellow=$(tput setaf 3)
+red=$(tput setaf 1)
+blue=$(tput setaf 4)
+cyan=$(tput setaf 6)
+
+# Load environment variables
+# shellcheck source=../env/phpfpm.env
+source env/phpfpm.env
+
+# Display a header
+echo "${cyan}${bold}========================================"
+echo "      Magento Docker Startup Script"
+echo "========================================${normal}"
+
 # Prompt the user to confirm if they want to proceed
-echo "This script will start Docker with all necessary services. Do you want to continue? (y/n)"
+echo "${yellow}${bold}This script will start Docker with all necessary services.${normal}"
+echo -n "${yellow}${bold}Do you want to continue? (y/n): ${normal}"
 read -r PROCEED
 
 if [[ "$PROCEED" != "y" && "$PROCEED" != "Y" ]]; then
-  echo "Operation aborted."
+  echo "${red}${bold}Operation aborted by user.${normal}"
   exit 0
 fi
 
-bin/start
+# Start Docker services
+echo "${blue}${bold}Starting Docker services...${normal}"
+if bin/start; then
+  echo "${green}${bold}Docker services started successfully.${normal}"
+else
+  echo "${red}${bold}Failed to start Docker services.${normal}"
+  exit 1
+fi
 
-bin/xdebug disable
+# Disable Xdebug
+echo "${blue}${bold}Disabling Xdebug...${normal}"
+if bin/xdebug disable; then
+  echo "${green}${bold}Xdebug disabled successfully.${normal}"
+else
+  echo "${red}${bold}Failed to disable Xdebug.${normal}"
+  exit 1
+fi
+
+# Display success message
+echo "${green}${bold}======================================================"
+echo "You may now access your Magento instance at:"
+echo "https://${MAGENTO_DOMAIN}/"
+echo "======================================================${normal}"
