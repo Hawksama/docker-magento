@@ -41,3 +41,5 @@ check_xmlstarlet
 bin/phpstorm-create-autostart-docker
 bin/phpstorm-start-xdebug
 bin/phpstorm-create-remote-debug
+bin/phpstorm-enable-magicento2-plugin
+bin/phpstorm-enable-magento-plugin

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+MAGENTOPLUGIN=".idea/magento2plugin.xml"
+
+# Ensure the .idea directory exists
+mkdir -p .idea
+
+cat <<EOF > "$MAGENTOPLUGIN"
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Magento2PluginSettings">
+    <option name="pluginEnabled" value="true" />
+    <option name="defaultLicenseName" value="Proprietary" />
+    <option name="magentoPath" value="\$PROJECT_DIR\$/src" />
+  </component>
+</project>
+EOF

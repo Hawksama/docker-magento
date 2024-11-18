@@ -1,0 +1,23 @@
+#!/bin/bash
+
+MAGICENTO_FILE=".idea/magicento2.xml"
+
+# Ensure the .idea directory exists
+mkdir -p .idea
+
+cat <<EOF > "$MAGICENTO_FILE"
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Magicento2Settings">
+    <option name="enabled" value="true" />
+    <option name="pathToMagento2Source" value="\$PROJECT_DIR\$/src/" />
+    <option name="pathToPhp" value="/usr/local/bin/php" />
+    <option name="urlToMagento" value="/" />
+    <option name="urlToEvalFolder" value="" />
+    <option name="evalCustomFolder" value="" />
+    <option name="pathToBinMagento" value="" />
+    <option name="phpBootstrapCode" value="" />
+    <option name="editableModules" value="" />
+  </component>
+</project>
+EOF
