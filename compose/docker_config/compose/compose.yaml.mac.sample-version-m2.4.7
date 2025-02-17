@@ -79,6 +79,8 @@ services:
       - "9200:9200"
       - "9300:9300"
     env_file: env/elasticsearch.env
+    volumes:
+      - ./elasticsearch-data:/usr/share/elasticsearch/data
     environment:
       - "discovery.type=single-node"
       ## Avoid test failures due to small disks
@@ -134,10 +136,21 @@ services:
       - ./docker_config/config/sftp.json:/app/config/sftp.json
       - vendor:/home/docker/upload
 
+#  typesense:
+#    image: typesense/typesense:27.1
+#    restart: on-failure
+#    ports:
+#      - "8108:433"
+#    volumes:
+#      - ./typesense-data:/data
+#      - ./dockerfiles/typesense/ssl:/etc/typesense/ssl
+#    env_file: env/typesense.env
+
 volumes:
   appdata:
   dbdata:
   rabbitmqdata:
   sockdata:
   ssldata:
+  elasticsearch-data:
   vendor: #only for macOS to synchronize vendor with SFTP, comment it on Linux
