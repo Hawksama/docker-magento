@@ -152,6 +152,9 @@ else
     bin/mysqlimport
 fi
 
+echo "${blue}Copying composer.lock from container to host...${normal}"
+bin/copyfromcontainer composer.lock
+
 echo "${blue}Cleaning redis cache and generated files...${normal}"
 bin/redis redis-cli flushall
 bin/clinotty rm -rf generated
