@@ -1,5 +1,22 @@
 #!/usr/bin/env bash
 
+# Parse command line arguments
+LOCK_ENV=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --lock-env)
+            LOCK_ENV=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--lock-env]"
+            echo "  --lock-env: Save configuration to env.php instead of database"
+            exit 1
+            ;;
+    esac
+done
+
 # shellcheck source=../env/elasticsearch.env
 source env/elasticsearch.env
 # shellcheck source=../env/opensearch.env
@@ -12,6 +29,29 @@ green=$(tput setaf 2)
 yellow=$(tput setaf 3)
 red=$(tput setaf 1)
 blue=$(tput setaf 4)
+
+# Function to set configuration value
+set_config() {
+    local config_path="$1"
+    local config_value="$2"
+    
+    if [ "$LOCK_ENV" = true ]; then
+        # Save to env.php
+        save_to_env_php "$config_path" "$config_value"
+    else
+        # Save to database
+        bin/clinotty bin/magento config:set "$config_path" "$config_value"
+    fi
+}
+
+# Function to save configuration to env.php using the separate script
+save_to_env_php() {
+    local config_path="$1"
+    local config_value="$2"
+    
+    # Call the separate save-to-env-php script
+    bin/save-to-env-php "$config_path" "$config_value"
+}
 
 # Function to get the search engine from env.php.dist
 get_search_engine_from_env_php_dist() {
@@ -52,18 +92,23 @@ else
             recommended_choice="2"
             recommendation_message="${green}ElasticSuite is currently used and recommended.${normal}"
             ;;
-        *)
+        "opensearch")
             recommended_choice="3"
+            recommendation_message="${green}OpenSearch is currently used and recommended.${normal}"
+            ;;
+        *)
+            recommended_choice="4"
             recommendation_message="${yellow}Current search engine '${current_search_engine}' in database.${normal}"
             ;;
     esac
 fi
 
-# Ask user to choose between Elasticsearch, ElasticSuite, or do nothing
+# Ask user to choose between Elasticsearch, ElasticSuite, OpenSearch, or do nothing
 echo "${bold}Choose the search engine to configure:${normal}"
 echo "1) Elasticsearch"
 echo "2) ElasticSuite"
-echo "3) Do nothing (keep current setting in database: ${current_search_engine})"
+echo "3) OpenSearch"
+echo "4) Do nothing (keep current setting in database: ${current_search_engine})"
 echo "${blue}Recommended choice:${normal} ${recommended_choice} (${recommendation_message})"
 read -p "Enter the number of your choice [${recommended_choice}]: " search_engine_choice
 
@@ -72,23 +117,42 @@ search_engine_choice=${search_engine_choice:-$recommended_choice}
 
 case "$search_engine_choice" in
     "1")
-        echo "${blue}Setting up Elasticsearch to host ${ES_HOST} and port ${ES_PORT}...${normal}"
-        bin/clinotty bin/magento config:set catalog/search/elasticsearch7_server_hostname "${ES_HOST}"
-        bin/clinotty bin/magento config:set catalog/search/elasticsearch7_server_port "${ES_PORT}"
-        bin/clinotty bin/magento config:set catalog/search/engine "${ES_VERSION}"
+        if [ "$LOCK_ENV" = true ]; then
+            echo "${blue}Setting up Elasticsearch to host ${ES_HOST} and port ${ES_PORT} (saving to env.php)...${normal}"
+        else
+            echo "${blue}Setting up Elasticsearch to host ${ES_HOST} and port ${ES_PORT} (saving to database)...${normal}"
+        fi
+        set_config "catalog/search/elasticsearch7_server_hostname" "${ES_HOST}"
+        set_config "catalog/search/elasticsearch7_server_port" "${ES_PORT}"
+        set_config "catalog/search/engine" "${ES_VERSION}"
         echo "${green}Elasticsearch configuration completed.${normal}"
         ;;
     "2")
-        echo "${blue}Setting up ElasticSuite...${normal}"
-        bin/clinotty bin/magento config:set smile_elasticsuite_core_base_settings/es_client/servers "${ES_HOST}:${ES_PORT}"
-        bin/clinotty bin/magento config:set smile_elasticsuite_core_base_settings/es_client/enable_https_mode '0'
-        bin/clinotty bin/magento config:set smile_elasticsuite_core_base_settings/es_client/enable_http_auth '0'
-        bin/clinotty bin/magento config:set smile_elasticsuite_core_base_settings/es_client/http_auth_user ''
-        bin/clinotty bin/magento config:set smile_elasticsuite_core_base_settings/es_client/http_auth_pwd ''
-        bin/clinotty bin/magento config:set catalog/search/engine "${ELASTICSUITE}"
+        if [ "$LOCK_ENV" = true ]; then
+            echo "${blue}Setting up ElasticSuite (saving to env.php)...${normal}"
+        else
+            echo "${blue}Setting up ElasticSuite (saving to database)...${normal}"
+        fi
+        set_config "smile_elasticsuite_core_base_settings/es_client/servers" "${ES_HOST}:${ES_PORT}"
+        set_config "smile_elasticsuite_core_base_settings/es_client/enable_https_mode" '0'
+        set_config "smile_elasticsuite_core_base_settings/es_client/enable_http_auth" '0'
+        set_config "smile_elasticsuite_core_base_settings/es_client/http_auth_user" ''
+        set_config "smile_elasticsuite_core_base_settings/es_client/http_auth_pwd" ''
+        set_config "catalog/search/engine" "${ELASTICSUITE}"
         echo "${green}ElasticSuite configuration completed.${normal}"
         ;;
     "3")
+        if [ "$LOCK_ENV" = true ]; then
+            echo "${blue}Setting up OpenSearch to host ${OPENSEARCH_HOST} and port ${OPENSEARCH_PORT} (saving to env.php)...${normal}"
+        else
+            echo "${blue}Setting up OpenSearch to host ${OPENSEARCH_HOST} and port ${OPENSEARCH_PORT} (saving to database)...${normal}"
+        fi
+        set_config "catalog/search/opensearch_server_hostname" "${OPENSEARCH_HOST}"
+        set_config "catalog/search/opensearch_server_port" "${OPENSEARCH_PORT}"
+        set_config "catalog/search/engine" "opensearch"
+        echo "${green}OpenSearch configuration completed.${normal}"
+        ;;
+    "4")
         echo "${yellow}No changes made to the search engine configuration. Keeping current setting: ${current_search_engine}.${normal}"
         ;;
     *)

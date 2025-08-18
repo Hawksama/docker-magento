@@ -1,7 +1,7 @@
 ## Mark Shust's Docker Configuration for Magento
 ## (https://github.com/markshust/docker-magento)
 ##
-## Version 47.0.1
+## Version 52.0.1
 
 ## To use SSH, see https://github.com/markshust/docker-magento#ssh
 ## Linux users, see https://github.com/markshust/docker-magento#linux
@@ -31,19 +31,18 @@ services:
       #- "host.docker.internal:host-gateway"
 
   phpfpm:
-    image: markoshust/magento-php:8.3-fpm-2
+    image: markoshust/magento-php:8.3-fpm-4
     volumes: *appvolumes
     env_file: env/phpfpm.env
     #extra_hosts: *appextrahosts
 
   db:
-    image: mariadb:10.6
+    image: mariadb:11.4
     command:
       --max_allowed_packet=64M
       --optimizer_use_condition_selectivity=1
       --optimizer_switch="rowid_filter=off"
-      --innodb_log_file_size=1024M
-      --innodb_strict_mode=0
+      --log_bin_trust_function_creators=1
     ports:
       - "3306:3306"
     env_file: env/db.env
@@ -55,41 +54,49 @@ services:
     ports:
       - "6379:6379"
 
-  # opensearch:
-  #   image: markoshust/magento-opensearch:2.12-0
-  #   ports:
-  #     - "9200:9200"
-  #     - "9300:9300"
-  #   env_file: env/opensearch.env
-  #   environment:
-  #     - "discovery.type=single-node"
-  #     ## Avoid test failures due to small disks
-  #     ## More info at https://github.com/markshust/docker-magento/issues/488
-  #     - "cluster.routing.allocation.disk.threshold_enabled=false"
-  #     - "index.blocks.read_only_allow_delete"
-
-  ## If you wish to use Elasticsearch, comment out opensearch image above and
-  ## uncomment this block. Do the same in the composer.healthcheck.yaml file.
-  # Additionally, if you are performing the manual setup, you will need to
-  # update the bin/setup command to use the $ES_HOST variable as the value for
-  # the --elasticsearch-host argument passed to bin/magento setup:install.
-  elasticsearch:
-    image: markoshust/magento-elasticsearch:8.13-0
+  opensearch:
+    image: markoshust/magento-opensearch:2.12-0
     ports:
       - "9200:9200"
       - "9300:9300"
-    env_file: env/elasticsearch.env
+    env_file: env/opensearch.env
     environment:
       - "discovery.type=single-node"
       ## Avoid test failures due to small disks
       ## More info at https://github.com/markshust/docker-magento/issues/488
       - "cluster.routing.allocation.disk.threshold_enabled=false"
       - "index.blocks.read_only_allow_delete"
-      ## Uncomment the following line to increase the virtual memory map count
-      - "max_map_count=262144"
+      ## Uncomment to set custom heap size to avoid memory errors
+      #- "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      ## Uncomment to increase the virtual memory map count
+      #- "max_map_count=262144"
+
+  ## If you wish to use Elasticsearch, comment out opensearch image above and
+  ## uncomment this block. Do the same in the composer.healthcheck.yaml file.
+  # Additionally, if you are performing the manual setup, you will need to
+  # update the bin/setup command to use the $ES_HOST variable as the value for
+  # the --elasticsearch-host argument passed to bin/magento setup:install.
+#  elasticsearch:
+#    image: markoshust/magento-elasticsearch:8.13-0
+#    ports:
+#      - "9200:9200"
+#      - "9300:9300"
+#    env_file: env/elasticsearch.env
+#    volumes:
+#      - ./elasticsearch-data:/usr/share/elasticsearch/data
+#    environment:
+#      - "discovery.type=single-node"
+#      ## Avoid test failures due to small disks
+#      ## More info at https://github.com/markshust/docker-magento/issues/488
+#      - "cluster.routing.allocation.disk.threshold_enabled=false"
+#      - "index.blocks.read_only_allow_delete"
+#      ## Uncomment the following line to increase the virtual memory map count
+#      - "max_map_count=262144"
+#      ## Uncomment the line below if ElasticSearch fails to start and stops after ~150 seconds with the error "container for service "elasticsearch" is unhealthy".
+#      - "xpack.security.enabled=false"
 
   rabbitmq:
-    image: markoshust/magento-rabbitmq:3.12-0
+    image: markoshust/magento-rabbitmq:4.1-0
     ports:
       - "15672:15672"
       - "5672:5672"
@@ -98,7 +105,7 @@ services:
     env_file: env/rabbitmq.env
 
   mailcatcher:
-    image: sj26/mailcatcher
+    image: sj26/mailcatcher:v0.10.0
     ports:
       - "1080:1080"
 
@@ -131,6 +138,16 @@ services:
     volumes:
       - ./docker_config/config/sftp.json:/app/config/sftp.json
       - vendor:/home/docker/upload
+
+#  typesense:
+#    image: typesense/typesense:27.1
+#    restart: on-failure
+#    ports:
+#      - "8108:433"
+#    volumes:
+#      - ./typesense-data:/data
+#      - ./dockerfiles/typesense/ssl:/etc/typesense/ssl
+#    env_file: env/typesense.env
 
 volumes:
   appdata:
