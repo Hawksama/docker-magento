@@ -30,6 +30,36 @@ yellow=$(tput setaf 3)
 red=$(tput setaf 1)
 blue=$(tput setaf 4)
 
+# Function to get Magento version
+get_magento_version() {
+    echo $(bin/cli php -r "
+        \$composer = json_decode(file_get_contents('./composer.json'), true);
+        if (isset(\$composer['version'])) {
+            echo \$composer['version'];
+        } elseif (isset(\$composer['require']['magento/product-community-edition'])) {
+            echo \$composer['require']['magento/product-community-edition'];
+        } else {
+            echo '0.0.0';
+        }
+    ")
+}
+
+# Function to compare versions (returns 1 if version1 > version2, 0 otherwise)
+version_greater_than() {
+    local version1="$1"
+    local version2="$2"
+    
+    # Remove patch versions (e.g., 2.4.7-p6 -> 2.4.7)
+    version1=$(echo "$version1" | sed 's/-p[0-9]*$//')
+    version2=$(echo "$version2" | sed 's/-p[0-9]*$//')
+    
+    if [ "$(printf '%s\n' "$version2" "$version1" | sort -V | head -n1)" = "$version2" ] && [ "$version1" != "$version2" ]; then
+        echo 1
+    else
+        echo 0
+    fi
+}
+
 # Function to set configuration value
 set_config() {
     local config_path="$1"
@@ -65,6 +95,10 @@ get_search_engine_from_env_php_dist() {
     fi
 }
 
+# Get Magento version and check if Elasticsearch 8 should be available
+magento_version=$(get_magento_version)
+supports_elasticsearch8=$(version_greater_than "$magento_version" "2.4.6")
+
 # Determine the current search engine setting from Magento configuration
 current_search_engine=$(bin/magento config:show catalog/search/engine)
 
@@ -77,86 +111,180 @@ if [ -z "$env_php_dist_engine" ]; then
 fi
 
 # Provide a recommendation based on the current and env.php.dist settings
+echo "${bold}${blue}Magento Version: ${magento_version}${normal}"
 echo "${bold}${red}Current search engine setting: ${env_php_dist_engine}${normal}"
 
 if [ "$env_php_dist_engine" != "$current_search_engine" ]; then
-    recommended_choice="2"
+    if [ "$supports_elasticsearch8" -eq 1 ]; then
+        recommended_choice="3"
+    else
+        recommended_choice="2"
+    fi
     recommendation_message="${yellow}The search engine in env.php.dist (${env_php_dist_engine}) differs from the current database setting (${current_search_engine}). It is recommended to use the configuration from env.php.dist to avoid potential reindexing issues.${normal}"
 else
     case "$current_search_engine" in
         "elasticsearch7")
             recommended_choice="1"
-            recommendation_message="${green}Elasticsearch is currently used and recommended.${normal}"
+            recommendation_message="${green}Elasticsearch 7 is currently used and recommended.${normal}"
+            ;;
+        "elasticsearch8")
+            if [ "$supports_elasticsearch8" -eq 1 ]; then
+                recommended_choice="2"
+                recommendation_message="${green}Elasticsearch 8 is currently used and recommended.${normal}"
+            else
+                recommended_choice="1"
+                recommendation_message="${yellow}Elasticsearch 8 is not supported in Magento ${magento_version}. Consider using Elasticsearch 7.${normal}"
+            fi
             ;;
         "elasticsuite")
-            recommended_choice="2"
+            if [ "$supports_elasticsearch8" -eq 1 ]; then
+                recommended_choice="3"
+            else
+                recommended_choice="2"
+            fi
             recommendation_message="${green}ElasticSuite is currently used and recommended.${normal}"
             ;;
         "opensearch")
-            recommended_choice="3"
+            if [ "$supports_elasticsearch8" -eq 1 ]; then
+                recommended_choice="4"
+            else
+                recommended_choice="3"
+            fi
             recommendation_message="${green}OpenSearch is currently used and recommended.${normal}"
             ;;
         *)
-            recommended_choice="4"
+            if [ "$supports_elasticsearch8" -eq 1 ]; then
+                recommended_choice="5"
+            else
+                recommended_choice="4"
+            fi
             recommendation_message="${yellow}Current search engine '${current_search_engine}' in database.${normal}"
             ;;
     esac
 fi
 
-# Ask user to choose between Elasticsearch, ElasticSuite, OpenSearch, or do nothing
+# Ask user to choose between search engines
 echo "${bold}Choose the search engine to configure:${normal}"
-echo "1) Elasticsearch"
-echo "2) ElasticSuite"
-echo "3) OpenSearch"
-echo "4) Do nothing (keep current setting in database: ${current_search_engine})"
+echo "1) Elasticsearch 7"
+if [ "$supports_elasticsearch8" -eq 1 ]; then
+    echo "2) Elasticsearch 8 ${green}(Available for Magento ${magento_version})${normal}"
+    echo "3) ElasticSuite"
+    echo "4) OpenSearch"
+    echo "5) Do nothing (keep current setting in database: ${current_search_engine})"
+else
+    echo "2) ElasticSuite"
+    echo "3) OpenSearch"
+    echo "4) Do nothing (keep current setting in database: ${current_search_engine})"
+fi
 echo "${blue}Recommended choice:${normal} ${recommended_choice} (${recommendation_message})"
 read -p "Enter the number of your choice [${recommended_choice}]: " search_engine_choice
 
 # Provide default choice if no input is given
 search_engine_choice=${search_engine_choice:-$recommended_choice}
 
-case "$search_engine_choice" in
-    "1")
-        if [ "$LOCK_ENV" = true ]; then
-            echo "${blue}Setting up Elasticsearch to host ${ES_HOST} and port ${ES_PORT} (saving to env.php)...${normal}"
-        else
-            echo "${blue}Setting up Elasticsearch to host ${ES_HOST} and port ${ES_PORT} (saving to database)...${normal}"
-        fi
-        set_config "catalog/search/elasticsearch7_server_hostname" "${ES_HOST}"
-        set_config "catalog/search/elasticsearch7_server_port" "${ES_PORT}"
-        set_config "catalog/search/engine" "${ES_VERSION}"
-        echo "${green}Elasticsearch configuration completed.${normal}"
-        ;;
-    "2")
-        if [ "$LOCK_ENV" = true ]; then
-            echo "${blue}Setting up ElasticSuite (saving to env.php)...${normal}"
-        else
-            echo "${blue}Setting up ElasticSuite (saving to database)...${normal}"
-        fi
-        set_config "smile_elasticsuite_core_base_settings/es_client/servers" "${ES_HOST}:${ES_PORT}"
-        set_config "smile_elasticsuite_core_base_settings/es_client/enable_https_mode" '0'
-        set_config "smile_elasticsuite_core_base_settings/es_client/enable_http_auth" '0'
-        set_config "smile_elasticsuite_core_base_settings/es_client/http_auth_user" ''
-        set_config "smile_elasticsuite_core_base_settings/es_client/http_auth_pwd" ''
-        set_config "catalog/search/engine" "${ELASTICSUITE}"
-        echo "${green}ElasticSuite configuration completed.${normal}"
-        ;;
-    "3")
-        if [ "$LOCK_ENV" = true ]; then
-            echo "${blue}Setting up OpenSearch to host ${OPENSEARCH_HOST} and port ${OPENSEARCH_PORT} (saving to env.php)...${normal}"
-        else
-            echo "${blue}Setting up OpenSearch to host ${OPENSEARCH_HOST} and port ${OPENSEARCH_PORT} (saving to database)...${normal}"
-        fi
-        set_config "catalog/search/opensearch_server_hostname" "${OPENSEARCH_HOST}"
-        set_config "catalog/search/opensearch_server_port" "${OPENSEARCH_PORT}"
-        set_config "catalog/search/engine" "opensearch"
-        echo "${green}OpenSearch configuration completed.${normal}"
-        ;;
-    "4")
-        echo "${yellow}No changes made to the search engine configuration. Keeping current setting: ${current_search_engine}.${normal}"
-        ;;
-    *)
-        echo "${red}Invalid choice. Exiting.${normal}"
-        exit 1
-        ;;
-esac
+# Handle user choices based on Elasticsearch 8 availability
+if [ "$supports_elasticsearch8" -eq 1 ]; then
+    case "$search_engine_choice" in
+        "1")
+            if [ "$LOCK_ENV" = true ]; then
+                echo "${blue}Setting up Elasticsearch 7 to host ${ES_HOST} and port ${ES_PORT} (saving to env.php)...${normal}"
+            else
+                echo "${blue}Setting up Elasticsearch 7 to host ${ES_HOST} and port ${ES_PORT} (saving to database)...${normal}"
+            fi
+            set_config "catalog/search/elasticsearch7_server_hostname" "${ES_HOST}"
+            set_config "catalog/search/elasticsearch7_server_port" "${ES_PORT}"
+            set_config "catalog/search/engine" "elasticsearch7"
+            echo "${green}Elasticsearch 7 configuration completed.${normal}"
+            ;;
+        "2")
+            if [ "$LOCK_ENV" = true ]; then
+                echo "${blue}Setting up Elasticsearch 8 to host ${ES_HOST} and port ${ES_PORT} (saving to env.php)...${normal}"
+            else
+                echo "${blue}Setting up Elasticsearch 8 to host ${ES_HOST} and port ${ES_PORT} (saving to database)...${normal}"
+            fi
+            set_config "catalog/search/elasticsearch8_server_hostname" "${ES_HOST}"
+            set_config "catalog/search/elasticsearch8_server_port" "${ES_PORT}"
+            set_config "catalog/search/engine" "elasticsearch8"
+            echo "${green}Elasticsearch 8 configuration completed.${normal}"
+            ;;
+        "3")
+            if [ "$LOCK_ENV" = true ]; then
+                echo "${blue}Setting up ElasticSuite (saving to env.php)...${normal}"
+            else
+                echo "${blue}Setting up ElasticSuite (saving to database)...${normal}"
+            fi
+            set_config "smile_elasticsuite_core_base_settings/es_client/servers" "${ES_HOST}:${ES_PORT}"
+            set_config "smile_elasticsuite_core_base_settings/es_client/enable_https_mode" '0'
+            set_config "smile_elasticsuite_core_base_settings/es_client/enable_http_auth" '0'
+            set_config "smile_elasticsuite_core_base_settings/es_client/http_auth_user" ''
+            set_config "smile_elasticsuite_core_base_settings/es_client/http_auth_pwd" ''
+            set_config "catalog/search/engine" "${ELASTICSUITE}"
+            echo "${green}ElasticSuite configuration completed.${normal}"
+            ;;
+        "4")
+            if [ "$LOCK_ENV" = true ]; then
+                echo "${blue}Setting up OpenSearch to host ${OPENSEARCH_HOST} and port ${OPENSEARCH_PORT} (saving to env.php)...${normal}"
+            else
+                echo "${blue}Setting up OpenSearch to host ${OPENSEARCH_HOST} and port ${OPENSEARCH_PORT} (saving to database)...${normal}"
+            fi
+            set_config "catalog/search/opensearch_server_hostname" "${OPENSEARCH_HOST}"
+            set_config "catalog/search/opensearch_server_port" "${OPENSEARCH_PORT}"
+            set_config "catalog/search/engine" "opensearch"
+            echo "${green}OpenSearch configuration completed.${normal}"
+            ;;
+        "5")
+            echo "${yellow}No changes made to the search engine configuration. Keeping current setting: ${current_search_engine}.${normal}"
+            ;;
+        *)
+            echo "${red}Invalid choice. Exiting.${normal}"
+            exit 1
+            ;;
+    esac
+else
+    # Original logic for Magento versions <= 2.4.6 (without Elasticsearch 8 support)
+    case "$search_engine_choice" in
+        "1")
+            if [ "$LOCK_ENV" = true ]; then
+                echo "${blue}Setting up Elasticsearch 7 to host ${ES_HOST} and port ${ES_PORT} (saving to env.php)...${normal}"
+            else
+                echo "${blue}Setting up Elasticsearch 7 to host ${ES_HOST} and port ${ES_PORT} (saving to database)...${normal}"
+            fi
+            set_config "catalog/search/elasticsearch7_server_hostname" "${ES_HOST}"
+            set_config "catalog/search/elasticsearch7_server_port" "${ES_PORT}"
+            set_config "catalog/search/engine" "${ES_VERSION}"
+            echo "${green}Elasticsearch 7 configuration completed.${normal}"
+            ;;
+        "2")
+            if [ "$LOCK_ENV" = true ]; then
+                echo "${blue}Setting up ElasticSuite (saving to env.php)...${normal}"
+            else
+                echo "${blue}Setting up ElasticSuite (saving to database)...${normal}"
+            fi
+            set_config "smile_elasticsuite_core_base_settings/es_client/servers" "${ES_HOST}:${ES_PORT}"
+            set_config "smile_elasticsuite_core_base_settings/es_client/enable_https_mode" '0'
+            set_config "smile_elasticsuite_core_base_settings/es_client/enable_http_auth" '0'
+            set_config "smile_elasticsuite_core_base_settings/es_client/http_auth_user" ''
+            set_config "smile_elasticsuite_core_base_settings/es_client/http_auth_pwd" ''
+            set_config "catalog/search/engine" "${ELASTICSUITE}"
+            echo "${green}ElasticSuite configuration completed.${normal}"
+            ;;
+        "3")
+            if [ "$LOCK_ENV" = true ]; then
+                echo "${blue}Setting up OpenSearch to host ${OPENSEARCH_HOST} and port ${OPENSEARCH_PORT} (saving to env.php)...${normal}"
+            else
+                echo "${blue}Setting up OpenSearch to host ${OPENSEARCH_HOST} and port ${OPENSEARCH_PORT} (saving to database)...${normal}"
+            fi
+            set_config "catalog/search/opensearch_server_hostname" "${OPENSEARCH_HOST}"
+            set_config "catalog/search/opensearch_server_port" "${OPENSEARCH_PORT}"
+            set_config "catalog/search/engine" "opensearch"
+            echo "${green}OpenSearch configuration completed.${normal}"
+            ;;
+        "4")
+            echo "${yellow}No changes made to the search engine configuration. Keeping current setting: ${current_search_engine}.${normal}"
+            ;;
+        *)
+            echo "${red}Invalid choice. Exiting.${normal}"
+            exit 1
+            ;;
+    esac
+fi
