@@ -48,20 +48,28 @@ select_file() {
   done
 }
 
-# Function to fix the SQL file by replacing the problematic collation
+# Function to fix the SQL file by replacing problematic lines or collations
 fix_sql_file() {
   local original_file="$1"
   local fixed_file="${original_file%.sql}_fixed.sql"
+  local needs_fix=false
 
-  # Check if the file contains the problematic collation
-  if bin/cli grep -q 'utf8mb4_0900_ai_ci' "$original_file"; then
-    # Move the original file to a new fixed file
+  # Check if the file contains the problematic collation or the sandbox mode line
+  if bin/cli grep -q 'utf8mb4_0900_ai_ci' "$original_file" || bin/cli grep -q 'enable the sandbox mode' "$original_file"; then
+    needs_fix=true
+  fi
+
+  if [ "$needs_fix" = true ]; then
+    # Create the fixed file
     bin/cli cp "$original_file" "$fixed_file"
 
     # Replace the problematic collation in the new file
     bin/cli sed -i 's/utf8mb4_0900_ai_ci/utf8mb4_general_ci/g' "$fixed_file"
+
+    # Remove the sandbox mode line if it exists
+    bin/cli sed -i '/enable the sandbox mode/d' "$fixed_file"
   else
-    # No need to fix the file if the collation is not present
+    # No need to fix the file if none of the issues are present
     fixed_file="$original_file"  # Use the original file as is
   fi
 
