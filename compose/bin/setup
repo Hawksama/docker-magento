@@ -193,8 +193,12 @@ fi
 echo "Running magento app:config:import..."
 bin/clinotty bin/magento app:config:import
 
+echo "Prepare the $_ENV variables in env.php by compiling the file, variables are avaiable in PHPFPM through .env files"
+bin/clinotty bin/magento config:set 'dev/restrict/allow_ips' '' --lock-env
+
 echo "Attempting to set up search engine..."
 bin/setup-search-engine --lock-env
+bin/copyfromcontainer app/etc/env.php
 
 echo "${blue}Running magento set:up...${normal}"
 bin/clinotty bin/magento setup:up

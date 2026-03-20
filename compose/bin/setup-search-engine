@@ -100,7 +100,7 @@ magento_version=$(get_magento_version)
 supports_elasticsearch8=$(version_greater_than "$magento_version" "2.4.6")
 
 # Determine the current search engine setting from Magento configuration
-current_search_engine=$(bin/magento config:show catalog/search/engine)
+current_search_engine=$(bin/clinotty bin/magento config:show catalog/search/engine)
 
 # Initialize env.php.dist search engine setting variable
 env_php_dist_engine=$(get_search_engine_from_env_php_dist)

@@ -42,7 +42,7 @@ install_fzf() {
 
 # Function to get a list of store codes
 get_store_codes() {
-    bin/magento store:list | awk -F'|' 'NR > 3 && $6 !~ /Code|admin/ {gsub(/ /,"",$6); print $6}'
+    bin/clinotty bin/magento store:list | awk -F'|' 'NR > 3 && $6 !~ /Code|admin/ {gsub(/ /,"",$6); print $6}'
 }
 
 # Function to prompt user to select stores using fzf
@@ -79,7 +79,7 @@ if [ ${#SELECTED_STORES[@]} -eq 0 ]; then
 fi
 
 echo "Setting web/url/use_store..."
-bin/magento config:set 'web/url/use_store' 1  --lock-env
+bin/save-to-env-php 'web/url/use_store' '1'
 
 echo "Updating base URLs for selected stores..."
 
@@ -87,73 +87,73 @@ echo "Updating base URLs for selected stores..."
 for STORE_CODE in "${SELECTED_STORES[@]}"; do
     echo "Updating base URLs for store: $STORE_CODE"
 
-    # Set base URLs for the store scope
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_url "https://${DOMAIN}/${STORE_CODE}/" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_url "https://${DOMAIN}/${STORE_CODE}/" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_link_url "https://${DOMAIN}/" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_link_url "https://${DOMAIN}/" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_media_url "https://${DOMAIN}/media/" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_media_url "https://${DOMAIN}/media/" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/unsecure/base_static_url "https://${DOMAIN}/static/" --lock-env
-    bin/magento config:set --scope=stores --scope-code="$STORE_CODE" web/secure/base_static_url "https://${DOMAIN}/static/" --lock-env
+    # Set base URLs for the store scope - note the path structure for stores: system/stores/{store_code}/path
+    bin/save-to-env-php "web/unsecure/base_url" "https://${DOMAIN}/${STORE_CODE}/" "system/stores/${STORE_CODE}"
+    bin/save-to-env-php "web/secure/base_url" "https://${DOMAIN}/${STORE_CODE}/" "system/stores/${STORE_CODE}"
+    bin/save-to-env-php "web/unsecure/base_link_url" "https://${DOMAIN}/" "system/stores/${STORE_CODE}"
+    bin/save-to-env-php "web/secure/base_link_url" "https://${DOMAIN}/" "system/stores/${STORE_CODE}"
+    bin/save-to-env-php "web/unsecure/base_media_url" "https://${DOMAIN}/media/" "system/stores/${STORE_CODE}"
+    bin/save-to-env-php "web/secure/base_media_url" "https://${DOMAIN}/media/" "system/stores/${STORE_CODE}"
+    bin/save-to-env-php "web/unsecure/base_static_url" "https://${DOMAIN}/static/" "system/stores/${STORE_CODE}"
+    bin/save-to-env-php "web/secure/base_static_url" "https://${DOMAIN}/static/" "system/stores/${STORE_CODE}"
 done
 
 echo "Updating base URLs for default scope"
 
-bin/magento config:set 'web/secure/base_url' "https://${DOMAIN}/"  --lock-env
-bin/magento config:set 'web/unsecure/base_url' "https://${DOMAIN}/"  --lock-env
-bin/magento config:set 'web/secure/base_link_url' "{{secure_base_url}}"  --lock-env
-bin/magento config:set 'web/unsecure/base_link_url' "{{unsecure_base_url}}"  --lock-env
-bin/magento config:set 'web/secure/base_media_url' "{{secure_base_url}}media/"  --lock-env
-bin/magento config:set 'web/unsecure/base_media_url' "{{unsecure_base_url}}media/"  --lock-env
-bin/magento config:set 'web/secure/base_static_url' "{{secure_base_url}}static/"  --lock-env
-bin/magento config:set 'web/unsecure/base_static_url' "{{unsecure_base_url}}static/"  --lock-env
+bin/save-to-env-php 'web/secure/base_url' "https://${DOMAIN}/"
+bin/save-to-env-php 'web/unsecure/base_url' "https://${DOMAIN}/"
+bin/save-to-env-php 'web/secure/base_link_url' "{{secure_base_url}}"
+bin/save-to-env-php 'web/unsecure/base_link_url' "{{unsecure_base_url}}"
+bin/save-to-env-php 'web/secure/base_media_url' "{{secure_base_url}}media/"
+bin/save-to-env-php 'web/unsecure/base_media_url' "{{unsecure_base_url}}media/"
+bin/save-to-env-php 'web/secure/base_static_url' "{{secure_base_url}}static/"
+bin/save-to-env-php 'web/unsecure/base_static_url' "{{unsecure_base_url}}static/"
 
 # Optionally, clear the cookie domain
-bin/magento config:set 'web/cookie/cookie_domain' '' --lock-env
+bin/save-to-env-php 'web/cookie/cookie_domain' ''
 
 echo "Setting dev/static/sign..."
-bin/magento config:set 'dev/static/sign' 0 --lock-env
+bin/save-to-env-php 'dev/static/sign' '0'
 
 echo "Setting admin/security/password_is_forced..."
-bin/magento config:set 'admin/security/password_is_forced' 0 --lock-env
+bin/save-to-env-php 'admin/security/password_is_forced' '0'
 
 echo "Setting admin/security/password_lifetime..."
-bin/magento config:set 'admin/security/password_lifetime' 0 --lock-env
+bin/save-to-env-php 'admin/security/password_lifetime' '0'
 
 echo "Setting dev/grid/async_indexing..."
-bin/magento config:set 'dev/grid/async_indexing' 0 --lock-env
+bin/save-to-env-php 'dev/grid/async_indexing' '0'
 
 echo "Setting dev/js/minify_files..."
-bin/magento config:set 'dev/js/minify_files' 0 --lock-env
+bin/save-to-env-php 'dev/js/minify_files' '0'
 
 echo "Setting dev/js/merge_files..."
-bin/magento config:set 'dev/js/merge_files' 0 --lock-env
+bin/save-to-env-php 'dev/js/merge_files' '0'
 
 echo "Setting dev/js/enable_js_bundling..."
-bin/magento config:set 'dev/js/enable_js_bundling' 0 --lock-env
+bin/save-to-env-php 'dev/js/enable_js_bundling' '0'
 
 echo "Setting dev/template/minify_html..."
-bin/magento config:set 'dev/template/minify_html' 0 --lock-env
+bin/save-to-env-php 'dev/template/minify_html' '0'
 
 echo "Setting dev/css/merge_css_files..."
-bin/magento config:set 'dev/css/merge_css_files' 0 --lock-env
+bin/save-to-env-php 'dev/css/merge_css_files' '0'
 
 echo "Setting dev/css/minify_files..."
-bin/magento config:set 'dev/css/minify_files' 0 --lock-env
+bin/save-to-env-php 'dev/css/minify_files' '0'
 
 echo "Setting dev/css/use_css_critical_path..."
-bin/magento config:set 'dev/css/use_css_critical_path' 0 --lock-env
+bin/save-to-env-php 'dev/css/use_css_critical_path' '0'
 
 echo "Setting dev/js/move_script_to_bottom..."
-bin/magento config:set 'dev/js/move_script_to_bottom' 0 --lock-env
+bin/save-to-env-php 'dev/js/move_script_to_bottom' '0'
 
 echo "Enabling template hints..."
-bin/magento dev:template-hints:enable;
-bin/magento config:set 'dev/debug/template_hints_storefront_show_with_parameter' 1 --lock-env
-bin/magento config:set 'dev/debug/template_hints_parameter_value' 'true' --lock-env
-bin/magento config:set 'dev/restrict/allow_ips' '' --lock-env
+bin/clinotty bin/magento dev:template-hints:enable
+bin/save-to-env-php 'dev/debug/template_hints_storefront_show_with_parameter' '1'
+bin/save-to-env-php 'dev/debug/template_hints_parameter_value' 'true'
+bin/save-to-env-php 'dev/restrict/allow_ips' ''
 
 # Flush cache to apply changes
 echo "Flushing cache..."
-bin/magento cache:flush
+bin/clinotty bin/magento cache:flush

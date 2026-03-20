@@ -10,8 +10,6 @@
 ## 172.17.0.1 in this file with the result of:
 ## docker network inspect bridge --format='{{(index .IPAM.Config 0).Gateway}}'
 
-version: "3"
-
 services:
   app:
     image: markoshust/magento-nginx:1.18-8
@@ -26,6 +24,7 @@ services:
       - sockdata:/sock
       - ssldata:/etc/nginx/certs
       - vendor:/var/www/html/vendor #only for macOS to synchronize vendor with SFTP, comment it on Linux
+      - ./dockerfiles/php/8.1/conf/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
     #extra_hosts: &appextrahosts
       ## Selenium support, replace "magento.test" with URL of your site
       #- "magento.test:172.17.0.1"
@@ -33,8 +32,16 @@ services:
       #- "host.docker.internal:host-gateway"
 
   phpfpm:
-    image: markoshust/magento-php:8.1-fpm-1
-    volumes: *appvolumes
+    image: markoshust/magento-php:8.1-fpm-6
+    volumes:
+      - ~/.composer:/var/www/.composer:cached
+      - ~/.ssh/id_rsa:/var/www/.ssh/id_rsa:cached
+      - ~/.ssh/known_hosts:/var/www/.ssh/known_hosts:cached
+      - appdata:/var/www/html
+      - sockdata:/sock
+      - ssldata:/etc/nginx/certs
+      - vendor:/var/www/html/vendor
+      - ./dockerfiles/php/8.1/conf/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
     env_file: env/phpfpm.env
     #extra_hosts: *appextrahosts
 
@@ -57,36 +64,36 @@ services:
     ports:
       - "6379:6379"
 
-  # opensearch:
-  #   image: markoshust/magento-opensearch:1.2-0
-  #   ports:
-  #     - "9200:9200"
-  #     - "9300:9300"
-  #   env_file: env/opensearch.env
-  #   environment:
-  #     - "discovery.type=single-node"
-  #     ## Avoid test failures due to small disks
-  #     ## More info at https://github.com/markshust/docker-magento/issues/488
-  #     - "cluster.routing.allocation.disk.threshold_enabled=false"
-  #     - "index.blocks.read_only_allow_delete"
+  opensearch:
+    image: markoshust/magento-opensearch:1.2-0
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    env_file: env/opensearch.env
+    environment:
+    - "discovery.type=single-node"
+    ## Avoid test failures due to small disks
+    ## More info at https://github.com/markshust/docker-magento/issues/488
+    - "cluster.routing.allocation.disk.threshold_enabled=false"
+    - "index.blocks.read_only_allow_delete"
 
   ## If you wish to use Elasticsearch, comment out opensearch image above and
   ## uncomment this block. Do the same in the composer.healthcheck.yaml file.
   # Additionally, if you are performing the manual setup, you will need to
   # update the bin/setup command to use the $ES_HOST variable as the value for
   # the --elasticsearch-host argument passed to bin/magento setup:install.
-  elasticsearch:
-   image: markoshust/magento-elasticsearch:7.17-0
-   ports:
-     - "9200:9200"
-     - "9300:9300"
-   env_file: env/elasticsearch.env
-   environment:
-     - "discovery.type=single-node"
-     ## Avoid test failures due to small disks
-     ## More info at https://github.com/markshust/docker-magento/issues/488
-     - "cluster.routing.allocation.disk.threshold_enabled=false"
-     - "index.blocks.read_only_allow_delete"
+#  elasticsearch:
+#   image: markoshust/magento-elasticsearch:7.17-0
+#   ports:
+#     - "9200:9200"
+#     - "9300:9300"
+#   env_file: env/elasticsearch.env
+#   environment:
+#     - "discovery.type=single-node"
+#     ## Avoid test failures due to small disks
+#     ## More info at https://github.com/markshust/docker-magento/issues/488
+#     - "cluster.routing.allocation.disk.threshold_enabled=false"
+#     - "index.blocks.read_only_allow_delete"
 
   rabbitmq:
     image: markoshust/magento-rabbitmq:3.9-0

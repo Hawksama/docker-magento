@@ -23,108 +23,90 @@ config_path="$1"
 config_value="$2"
 base_path="${3:-system/default}"  # Default to system/default if not provided
 
-# Function to save configuration to env.php
-save_to_env_php() {
-    local config_path="$1"
-    local config_value="$2"
-    local base_path="$3"
-    
-    # Create a temporary PHP script file
-    local temp_script=$(mktemp)
-    cat > "$temp_script" << 'EOF'
-<?php
-$envFile = './src/app/etc/env.php';
-if (!file_exists($envFile)) {
-    echo "Error: env.php file not found\n";
+# Create a PHP script inside the container and execute it
+bin/clinotty php -r "
+\$envFile = '/var/www/html/app/etc/env.php';
+if (!file_exists(\$envFile)) {
+    echo 'Error: env.php file not found\n';
     exit(1);
 }
 
-$config = include $envFile;
+\$config = include \$envFile;
 
-// Get base path from argument (can be empty, system/default, or custom path)
-$basePath = $argv[3];
-$configPath = $argv[1];
-$configValue = $argv[2];
+// Get arguments
+\$configPath = '$config_path';
+\$configValue = '$config_value';
+\$basePath = '$base_path';
 
 // Navigate to the base path if provided
-if (!empty($basePath)) {
-    $basePathParts = explode('/', $basePath);
-    $current = &$config;
-    
+if (!empty(\$basePath)) {
+    \$basePathParts = explode('/', \$basePath);
+    \$current = &\$config;
+
     // Ensure the base path structure exists
-    foreach ($basePathParts as $part) {
-        if (!isset($current[$part])) {
-            $current[$part] = [];
+    foreach (\$basePathParts as \$part) {
+        if (!isset(\$current[\$part])) {
+            \$current[\$part] = [];
         }
-        $current = &$current[$part];
+        \$current = &\$current[\$part];
     }
 } else {
     // Direct access to root level of config
-    $current = &$config;
+    \$current = &\$config;
 }
 
 // Process the configuration path
-$pathParts = explode('/', $configPath);
+\$pathParts = explode('/', \$configPath);
 
 // Navigate through the path, creating arrays as needed
-for ($i = 0; $i < count($pathParts) - 1; $i++) {
-    $part = $pathParts[$i];
-    if (!isset($current[$part])) {
-        $current[$part] = [];
+for (\$i = 0; \$i < count(\$pathParts) - 1; \$i++) {
+    \$part = \$pathParts[\$i];
+    if (!isset(\$current[\$part])) {
+        \$current[\$part] = [];
     }
-    $current = &$current[$part];
+    \$current = &\$current[\$part];
 }
 
 // Set the final value
-$finalKey = end($pathParts);
-$current[$finalKey] = $configValue;
+\$finalKey = end(\$pathParts);
+\$current[\$finalKey] = \$configValue;
 
 // Custom function to format array with proper [] syntax and indentation
-function formatArray($array, $indent = 0) {
-    $spaces = str_repeat('    ', $indent);
-    $result = "[\n";
-    
-    foreach ($array as $key => $value) {
-        $result .= $spaces . '    ';
-        
-        if (is_string($key)) {
-            $result .= "'" . addslashes($key) . "' => ";
+function formatArray(\$array, \$indent = 0) {
+    \$spaces = str_repeat('    ', \$indent);
+    \$result = \"[\n\";
+
+    foreach (\$array as \$key => \$value) {
+        \$result .= \$spaces . '    ';
+
+        if (is_string(\$key)) {
+            \$result .= \"'\" . addslashes(\$key) . \"' => \";
         } else {
-            $result .= $key . ' => ';
+            \$result .= \$key . ' => ';
         }
-        
-        if (is_array($value)) {
-            $result .= formatArray($value, $indent + 1);
-        } else if (is_string($value)) {
-            $result .= "'" . addslashes($value) . "'";
-        } else if (is_bool($value)) {
-            $result .= $value ? 'true' : 'false';
+
+        if (is_array(\$value)) {
+            \$result .= formatArray(\$value, \$indent + 1);
+        } else if (is_string(\$value)) {
+            \$result .= \"'\" . addslashes(\$value) . \"'\";
+        } else if (is_bool(\$value)) {
+            \$result .= \$value ? 'true' : 'false';
         } else {
-            $result .= $value;
+            \$result .= \$value;
         }
-        
-        $result .= ",\n";
+
+        \$result .= \",\n\";
     }
-    
-    $result .= $spaces . ']';
-    return $result;
+
+    \$result .= \$spaces . ']';
+    return \$result;
 }
 
 // Write back to file with proper formatting
-$content = "<?php\n    return " . formatArray($config, 1) . ";\n";
-file_put_contents($envFile, $content);
+\$content = \"<?php\n    return \" . formatArray(\$config, 1) . \";\n\";
+file_put_contents(\$envFile, \$content);
 
 // Build display path for output message
-$displayPath = !empty($basePath) ? $basePath . '/' . $configPath : $configPath;
-echo "Successfully saved $displayPath = $configValue to env.php\n";
-EOF
-
-    # Execute the PHP script with arguments
-    php "$temp_script" "$config_path" "$config_value" "$base_path"
-    
-    # Clean up temp file
-    rm "$temp_script"
-}
-
-# Call the function with provided arguments
-save_to_env_php "$config_path" "$config_value" "$base_path"
+\$displayPath = !empty(\$basePath) ? \$basePath . '/' . \$configPath : \$configPath;
+echo \"Successfully saved \$displayPath = \$configValue to env.php\n\";
+"
