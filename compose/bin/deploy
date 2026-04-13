@@ -4,7 +4,7 @@
 # shellcheck source=../env/theme.env
 source env/theme.env
 
-bin/cli rm -rf "$THEME_STATIC_PATH" var/view_preprocessed/*;
+bin/cli rm -rf "$THEME_STATIC_PATH" var/view_preprocessed/* var/cache/ var/page_cache/;
 
 #php bin/magento deploy:mode:set developer -s;
 bin/magento cache:flush;

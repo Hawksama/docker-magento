@@ -30,17 +30,17 @@ else
   composer create-project --repository=https://repo.magento.com/ magento/project-"${EDITION}"-edition="${VERSION}" ./src
 fi
 
-#if [ $? != 0 ]; then
-#    echo -e "${BLUE}Please check the installation guide at ${YELLOW}https://github.com/markshust/docker-magento#install-fails-because-project-directory-is-not-empty${BLUE} for troubleshooting.${NC}"
-#else
-#    bin/clinotty [ ! -f "./var/composer_home/auth.json" ] && bin/clinotty mkdir -p ./var/composer_home && bin/clinotty cp /var/www/.composer/auth.json ./var/composer_home/auth.json
-#fi
+if [ $? != 0 ]; then
+    echo -e "${BLUE}Please check the installation guide at ${YELLOW}https://github.com/markshust/docker-magento#install-fails-because-project-directory-is-not-empty${BLUE} for troubleshooting.${NC}"
+else
+    bin/clinotty [ ! -f "./var/composer_home/auth.json" ] && bin/clinotty mkdir -p ./var/composer_home && bin/clinotty cp /var/www/.composer/auth.json ./var/composer_home/auth.json
+fi
 
 # Remove the directories to avoid copying unnecessary files during docker build
 rm -rf src/vendor
 rm -rf src/app
 
 #
-#bin/setup -m -v 2.4.6 -n
+bin/setup -m -v 2.4.7 -n
 
 echo "Done!"

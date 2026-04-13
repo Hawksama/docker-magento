@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [ ! -d "src/bin" ]; then
+  echo "Error: src/bin directory is missing. Please ensure the Magento source code is present in the src directory."
+  exit 1
+fi
+
 source env/phpfpm.env
 
 serverName="${XDEBUG_SERVER_NAME}"
