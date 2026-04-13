@@ -17,7 +17,7 @@ mkdir -p "$backup_dir"
 ignore_files_root=("compose.dev.yaml" "compose.dev-linux.yaml" "compose.dev-ssh.yaml" "compose.healthcheck.yaml" "compose.yaml")
 
 # Directories to exclude from checking
-exclude_dirs=("dbdata" "src" "tmpupdate" "idea.workspace" ".idea")
+exclude_dirs=("dbdata" "src" "tmpupdate" "idea.workspace" ".idea" "elasticsearch-data")
 
 # Build the find exclude parameters, including directories starting with "backup"
 exclude_params=""
@@ -28,18 +28,12 @@ done
 # Exclude directories starting with "backup"
 exclude_params="$exclude_params -name 'backup*' -prune -o"
 
-# Collect list of local files before updating, excluding specified directories
-local_files_before_update=$(eval "find . $exclude_params -type f -print")
-
 # Download the latest files to a temporary directory
 mkdir -p tmpupdate && cd tmpupdate
 curl -s https://raw.githubusercontent.com/Hawksama/docker-magento/master/lib/template | bash
 
-# Collect list of files in the update
-updated_files=$(find . -type f)
-
-# Loop through all files in the update
-for file in $updated_files; do
+# Collect list of files in the update and process them
+find . -type f -print0 | while IFS= read -r -d '' file; do
     # Construct the corresponding file path in the project directory
     local_file="../${file#./}"
     backup_file="../$backup_dir/${local_file#../}"
@@ -65,7 +59,7 @@ for file in $updated_files; do
         git diff --no-index --color "$local_file" "$file" || true
 
         # Prompt the user whether they want to update this file
-        read -p "${yellow}Do you want to update $local_file? [y/n] ${normal}" response
+        read -p "${yellow}Do you want to update $local_file? [y/n] ${normal}" response < /dev/tty
         if [[ "$response" =~ ^[Yy]$ ]]; then
             # Backup the local file before overwriting
             mkdir -p "$(dirname "$backup_file")"
@@ -90,7 +84,7 @@ cd ..
 
 # Now, identify files that exist locally but not in the updated version
 echo "${bold}${blue}Checking for obsolete files...${normal}"
-for local_file in $local_files_before_update; do
+eval "find . $exclude_params -type f -print0" | while IFS= read -r -d '' local_file; do
     # Get the base filename
     base_filename=$(basename "$local_file")
     file_dir=$(dirname "$local_file")
@@ -107,7 +101,7 @@ for local_file in $local_files_before_update; do
     if [ ! -f "$update_file" ]; then
         # File exists locally but not in the update, prompt the user
         echo "${yellow}The file $local_file no longer exists in the updated version.${normal}"
-        read -p "${yellow}Do you want to delete $local_file? [y/n] ${normal}" response
+        read -p "${yellow}Do you want to delete $local_file? [y/n] ${normal}" response < /dev/tty
         if [[ "$response" =~ ^[Yy]$ ]]; then
             # Backup the file before deleting
             backup_file="$backup_dir/${local_file#./}"
