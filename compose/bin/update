@@ -84,7 +84,20 @@ cd ..
 
 # Now, identify files that exist locally but not in the updated version
 echo "${bold}${blue}Checking for obsolete files...${normal}"
+skipped_dirs=()
 eval "find . $exclude_params -type f -print0" | while IFS= read -r -d '' local_file; do
+    # Check if this file still exists (it might have been moved as part of a directory)
+    if [ ! -e "$local_file" ]; then
+        continue
+    fi
+
+    # Check if this file belongs to a directory we already decided to skip
+    for sdir in "${skipped_dirs[@]}"; do
+        if [[ "$local_file" == "$sdir"/* ]]; then
+            continue 2
+        fi
+    done
+
     # Get the base filename
     base_filename=$(basename "$local_file")
     file_dir=$(dirname "$local_file")
@@ -99,6 +112,35 @@ eval "find . $exclude_params -type f -print0" | while IFS= read -r -d '' local_f
 
     # Check if the file exists in the update
     if [ ! -f "$update_file" ]; then
+        # Check if parent directories are missing in the update
+        IFS='/' read -ra parts <<< "${local_file#./}"
+        current_check="."
+        missing_dir=""
+        for (( i=0; i < ${#parts[@]}-1; i++ )); do
+            current_check="$current_check/${parts[$i]}"
+            if [ ! -d "tmpupdate/${current_check#./}" ]; then
+                missing_dir="$current_check"
+                break
+            fi
+        done
+
+        if [ -n "$missing_dir" ]; then
+            echo "${yellow}The directory $missing_dir no longer exists in the updated version.${normal}"
+            read -p "${yellow}Do you want to delete the whole directory $missing_dir? [y/n] ${normal}" response < /dev/tty
+            if [[ "$response" =~ ^[Yy]$ ]]; then
+                # Backup and delete the whole directory
+                backup_file="$backup_dir/${missing_dir#./}"
+                mkdir -p "$(dirname "$backup_file")"
+                mv "$missing_dir" "$backup_file"
+                echo "${green}$missing_dir has been moved to $backup_file and deleted from the project.${normal}"
+                continue
+            else
+                echo "${red}Skipping deletion for all files in $missing_dir.${normal}"
+                skipped_dirs+=("$missing_dir")
+                continue
+            fi
+        fi
+
         # File exists locally but not in the update, prompt the user
         echo "${yellow}The file $local_file no longer exists in the updated version.${normal}"
         read -p "${yellow}Do you want to delete $local_file? [y/n] ${normal}" response < /dev/tty
