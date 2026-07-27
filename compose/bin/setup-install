@@ -49,6 +49,6 @@ bin/n98-magerun2 setup:install \
   --session-save-redis-db=2 \
   --use-rewrites=1 \
   --no-interaction \
-  --elasticsearch-host="$ES_HOST" \
-  --elasticsearch-port="$ES_PORT" \
-  --search-engine=elasticsearch7
+  --opensearch-host="$OPENSEARCH_HOST" \
+  --opensearch-port="$OPENSEARCH_PORT" \
+  --search-engine=opensearch

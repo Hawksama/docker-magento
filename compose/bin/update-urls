@@ -148,6 +148,12 @@ bin/save-to-env-php 'dev/css/use_css_critical_path' '0'
 echo "Setting dev/js/move_script_to_bottom..."
 bin/save-to-env-php 'dev/js/move_script_to_bottom' '0'
 
+echo "Setting dev/security/password_is_forced..."
+bin/save-to-env-php 'dev/security/password_is_forced' '0'
+
+echo "Setting dev/security/password_lifetime..."
+bin/save-to-env-php 'dev/security/password_lifetime' '0'
+
 echo "Enabling template hints..."
 bin/clinotty bin/magento dev:template-hints:enable
 bin/save-to-env-php 'dev/debug/template_hints_storefront_show_with_parameter' '1'

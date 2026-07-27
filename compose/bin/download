@@ -41,6 +41,6 @@ rm -rf src/vendor
 rm -rf src/app
 
 #
-bin/setup -m -v 2.4.7 -n
+bin/setup -m -v $VERSION -n
 
 echo "Done!"
