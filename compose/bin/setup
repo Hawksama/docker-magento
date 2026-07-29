@@ -203,8 +203,11 @@ bin/copyfromcontainer app/etc/env.php
 echo "${blue}Running magento set:up...${normal}"
 bin/clinotty bin/magento setup:up
 
-echo "${blue}Creating admin user ${MAGENTO_ADMIN_USER} with password ${MAGENTO_ADMIN_PASSWORD}.${normal}"
-bin/clinotty bin/magento admin:user:create --admin-user="$MAGENTO_ADMIN_USER" --admin-password="$MAGENTO_ADMIN_PASSWORD" --admin-email="$MAGENTO_ADMIN_EMAIL" --admin-firstname="$MAGENTO_ADMIN_FIRST_NAME" --admin-lastname="$MAGENTO_ADMIN_LAST_NAME"
+echo "${blue}Ensuring admin user ${MAGENTO_ADMIN_USER} exists with password ${MAGENTO_ADMIN_PASSWORD}.${normal}"
+if ! bin/clinotty bin/magento admin:user:create --admin-user="$MAGENTO_ADMIN_USER" --admin-password="$MAGENTO_ADMIN_PASSWORD" --admin-email="$MAGENTO_ADMIN_EMAIL" --admin-firstname="$MAGENTO_ADMIN_FIRST_NAME" --admin-lastname="$MAGENTO_ADMIN_LAST_NAME"; then
+    echo "${yellow}Admin user creation failed (likely already exists with a different email — common when a production DB was imported). Resetting password via n98-magerun2.${normal}"
+    bin/clinotty bin/n98-magerun2 admin:user:change-password "$MAGENTO_ADMIN_USER" "$MAGENTO_ADMIN_PASSWORD"
+fi
 
 echo "${blue}Forcing deploy of static content to speed up initial requests.${normal}"
 bin/clinotty bin/magento setup:static-content:deploy -f
