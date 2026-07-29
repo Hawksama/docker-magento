@@ -78,9 +78,30 @@ set_config() {
 save_to_env_php() {
     local config_path="$1"
     local config_value="$2"
-    
+
     # Call the separate save-to-env-php script
     bin/save-to-env-php "$config_path" "$config_value"
+}
+
+# ElasticSuite is search middleware — it must point at whichever backend
+# (elasticsearch or opensearch) is actually declared in compose.yaml.
+get_elasticsuite_backend() {
+    local compose_file="compose.yaml"
+    local has_opensearch=0 has_elasticsearch=0
+    if [ -f "$compose_file" ]; then
+        has_opensearch=$(grep -cE "^[[:space:]]+opensearch:[[:space:]]*$" "$compose_file")
+        has_elasticsearch=$(grep -cE "^[[:space:]]+elasticsearch:[[:space:]]*$" "$compose_file")
+    fi
+    if [ "$has_opensearch" -gt 0 ] && [ "$has_elasticsearch" -eq 0 ]; then
+        echo "opensearch"
+    elif [ "$has_elasticsearch" -gt 0 ] && [ "$has_opensearch" -eq 0 ]; then
+        echo "elasticsearch"
+    elif [ "$has_opensearch" -gt 0 ]; then
+        # Both defined — default to opensearch (Magento 2.4.7+ default)
+        echo "opensearch"
+    else
+        echo "elasticsearch"
+    fi
 }
 
 # Function to get the search engine from env.php.dist
@@ -208,12 +229,20 @@ if [ "$supports_elasticsearch8" -eq 1 ]; then
             echo "${green}Elasticsearch 8 configuration completed.${normal}"
             ;;
         "3")
-            if [ "$LOCK_ENV" = true ]; then
-                echo "${blue}Setting up ElasticSuite (saving to env.php)...${normal}"
+            elasticsuite_backend=$(get_elasticsuite_backend)
+            if [ "$elasticsuite_backend" = "opensearch" ]; then
+                ELASTICSUITE_HOST="${OPENSEARCH_HOST}"
+                ELASTICSUITE_PORT="${OPENSEARCH_PORT}"
             else
-                echo "${blue}Setting up ElasticSuite (saving to database)...${normal}"
+                ELASTICSUITE_HOST="${ES_HOST}"
+                ELASTICSUITE_PORT="${ES_PORT}"
             fi
-            set_config "smile_elasticsuite_core_base_settings/es_client/servers" "${ES_HOST}:${ES_PORT}"
+            if [ "$LOCK_ENV" = true ]; then
+                echo "${blue}Setting up ElasticSuite -> ${elasticsuite_backend} (${ELASTICSUITE_HOST}:${ELASTICSUITE_PORT}) (saving to env.php)...${normal}"
+            else
+                echo "${blue}Setting up ElasticSuite -> ${elasticsuite_backend} (${ELASTICSUITE_HOST}:${ELASTICSUITE_PORT}) (saving to database)...${normal}"
+            fi
+            set_config "smile_elasticsuite_core_base_settings/es_client/servers" "${ELASTICSUITE_HOST}:${ELASTICSUITE_PORT}"
             set_config "smile_elasticsuite_core_base_settings/es_client/enable_https_mode" '0'
             set_config "smile_elasticsuite_core_base_settings/es_client/enable_http_auth" '0'
             set_config "smile_elasticsuite_core_base_settings/es_client/http_auth_user" ''
@@ -255,12 +284,20 @@ else
             echo "${green}Elasticsearch 7 configuration completed.${normal}"
             ;;
         "2")
-            if [ "$LOCK_ENV" = true ]; then
-                echo "${blue}Setting up ElasticSuite (saving to env.php)...${normal}"
+            elasticsuite_backend=$(get_elasticsuite_backend)
+            if [ "$elasticsuite_backend" = "opensearch" ]; then
+                ELASTICSUITE_HOST="${OPENSEARCH_HOST}"
+                ELASTICSUITE_PORT="${OPENSEARCH_PORT}"
             else
-                echo "${blue}Setting up ElasticSuite (saving to database)...${normal}"
+                ELASTICSUITE_HOST="${ES_HOST}"
+                ELASTICSUITE_PORT="${ES_PORT}"
             fi
-            set_config "smile_elasticsuite_core_base_settings/es_client/servers" "${ES_HOST}:${ES_PORT}"
+            if [ "$LOCK_ENV" = true ]; then
+                echo "${blue}Setting up ElasticSuite -> ${elasticsuite_backend} (${ELASTICSUITE_HOST}:${ELASTICSUITE_PORT}) (saving to env.php)...${normal}"
+            else
+                echo "${blue}Setting up ElasticSuite -> ${elasticsuite_backend} (${ELASTICSUITE_HOST}:${ELASTICSUITE_PORT}) (saving to database)...${normal}"
+            fi
+            set_config "smile_elasticsuite_core_base_settings/es_client/servers" "${ELASTICSUITE_HOST}:${ELASTICSUITE_PORT}"
             set_config "smile_elasticsuite_core_base_settings/es_client/enable_https_mode" '0'
             set_config "smile_elasticsuite_core_base_settings/es_client/enable_http_auth" '0'
             set_config "smile_elasticsuite_core_base_settings/es_client/http_auth_user" ''
