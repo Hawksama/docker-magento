@@ -17,6 +17,20 @@ if [ "$IS_COMPOSER_ON_HOST" ]; then
 fi
 
 if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ]; then
+    # Fail with the remedy rather than blocking. Prompting here would hang an
+    # unattended run on a TTY, or read EOF and exit 1 with no explanation
+    # without one.
+    if [ -n "$NONINTERACTIVE" ] || [ ! -t 0 ]; then
+        echo "repo.magento.com credentials are not configured, and this is a non-interactive run." >&2
+        echo >&2
+        echo "Set them once with:" >&2
+        echo "  composer config --global http-basic.repo.magento.com <public-key> <private-key>" >&2
+        echo >&2
+        echo "They persist in ~/.composer/auth.json, which compose.yaml bind-mounts into" >&2
+        echo "the container, so this only needs doing once per machine." >&2
+        echo "Alternatively re-run with prompts enabled: bin/setup -i" >&2
+        exit 1
+    fi
     exec < /dev/tty
     echo
     echo "Composer authentication required (repo.magento.com public and private keys):"

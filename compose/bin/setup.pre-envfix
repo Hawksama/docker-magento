@@ -177,7 +177,7 @@ run_required() {
     printf '%s\n' "${red}${bold}STEP FAILED (required): ${name}${normal}" >&2
     printf '%s\n' "${red}  exit code: ${rc}${normal}" >&2
     printf '%s\n' "${red}  re-run   : cd $(pwd) && $(_join_cmd "$@")${normal}" >&2
-    print_summary "$name"
+    print_summary
     exit 1
 }
 
@@ -210,11 +210,7 @@ run_skip() {
     printf '%s\n' "${yellow}--  SKIP $1 ($2)${normal}"
 }
 
-# $1, when set, is the name of the required step that aborted the run. Without
-# it the summary would print "No failures." immediately after a fatal error,
-# because FAILED_NAMES only tracks optional steps.
 print_summary() {
-    local fatal="$1"
     local i=0 n
     echo
     echo "${bold}${blue}──────────────── setup summary ────────────────${normal}"
@@ -223,12 +219,8 @@ print_summary() {
         echo "${yellow}Skipped:${normal}"
         for n in "${SKIPPED_NAMES[@]}"; do echo "  - $n"; done
     fi
-    if [ -n "$fatal" ]; then
-        echo "${red}${bold}ABORTED on required step: ${fatal}${normal}"
-        echo "${red}Setup did not complete. Fix the above, then re-run: bin/setup${normal}"
-    fi
     if [ "${#FAILED_NAMES[@]}" -eq 0 ]; then
-        [ -z "$fatal" ] && echo "${green}No failures.${normal}"
+        echo "${green}No failures.${normal}"
     else
         echo "${yellow}${bold}Optional steps that FAILED (${#FAILED_NAMES[@]}):${normal}"
         while [ "$i" -lt "${#FAILED_NAMES[@]}" ]; do
@@ -286,20 +278,7 @@ DOMAIN=${MAGENTO_DOMAIN}
 # ---------------------------------------------------------------------------
 
 # bin/stopall stops every container on the host, including unrelated projects.
-run_optional "stop all containers" bin/stopall
-
-# Seed app/etc/env.php independently of bin/cpsample.
-#
-# cpsample does two unrelated things: it creates src/app/etc/env.php from the
-# sample if missing (safe, idempotent), and it overwrites the compose files
-# (destructive). Because the compose-file half is now opt-in, this half has to
-# stand on its own -- bin/mysqlimport shells out to n98-magerun2 db:import,
-# which reads app/etc/env.php to detect DB settings and dies without it.
-if [ ! -f src/app/etc/env.php ]; then
-    echo "${blue}Seeding src/app/etc/env.php from sample-files/env.php.sample${normal}"
-    mkdir -p src/app/etc
-    cp sample-files/env.php.sample src/app/etc/env.php
-fi
+run_optional "stop project containers" bin/stopall
 
 # bin/cpsample overwrites compose.yaml and compose.dev.yaml unconditionally.
 # Opt-in only: local edits to those files are not recoverable (no git repo).

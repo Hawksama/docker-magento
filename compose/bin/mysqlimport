@@ -36,24 +36,37 @@ fix_sql_file() {
   echo "$fixed_file"
 }
 
-# Function to select a file if there are multiple, or return the single file if only one exists
+# Function to select a file if there are multiple, or return the single file if only one exists.
+#
+# This runs inside a command substitution -- path=$(select_file) -- so `exit`
+# here only kills the subshell. Diagnostics therefore go to stderr (stdout is
+# the return channel) and the caller must test the return status.
 select_file() {
   files=$(bin/cli find dbdump -iregex '.*\.\(sql\|gz\)')
   file_count=$(echo "$files" | wc -w)
 
   if [ "$file_count" -eq 0 ]; then
-    echo "${red}${bold}Error:${normal} There are no *.sql or *.gz files in the dbdump directory."
-    exit 1
+    echo "${red}${bold}Error:${normal} There are no *.sql or *.gz files in the dbdump directory." >&2
+    return 1
   elif [ "$file_count" -eq 1 ]; then
     echo "$files"  # Return the single file
+  elif [ -n "$NONINTERACTIVE" ] || [ ! -t 0 ]; then
+    # Deterministic choice for unattended runs: the most recently modified dump.
+    chosen=$(bin/cli bash -c "ls -t \$(find dbdump -iregex '.*\.\(sql\|gz\)') 2>/dev/null | head -1" | tr -d '\r')
+    if [ -z "$chosen" ]; then
+      echo "${red}${bold}Error:${normal} could not determine the newest dump in dbdump." >&2
+      return 1
+    fi
+    echo "${yellow}Multiple dumps found; non-interactive run selected the newest:${normal} $chosen" >&2
+    echo "$chosen"
   else
     select file in $files; do
       if [ -n "$file" ]; then
         echo "$file"
-        return
+        return 0
       else
-        echo "${red}${bold}Invalid selection. Please try again.${normal}"
-        exit 1
+        echo "${red}${bold}Invalid selection. Please try again.${normal}" >&2
+        return 1
       fi
     done
   fi
@@ -92,7 +105,14 @@ import_sql_file() {
 echo "${blue}${bold}Starting database import script...${normal}"
 
 if [ -z "$1" ]; then
-  path=$(select_file)
+  # select_file cannot abort the script from inside $( ), so check its status.
+  if ! path=$(select_file); then
+    exit 1
+  fi
+  if [ -z "$path" ]; then
+    echo "${red}${bold}Error:${normal} no dump file selected." >&2
+    exit 1
+  fi
 else
   path="$1"
   echo "${yellow}${bold}File provided as argument:${normal} $path"
@@ -103,10 +123,7 @@ extension="${path##*.}"
 echo "${blue}${bold}Selected file:${normal} $path"
 
 # Try to import the selected file and capture any errors
-import_sql_file "$path" 2>&1
-
-# Check the exit status of the import command
-if [ $? -eq 0 ]; then
+if import_sql_file "$path" 2>&1; then
   echo "${green}${bold}Import completed successfully.${normal}"
 else
   echo "${red}${bold}Error:${normal} Import failed. Please check the output above for details."

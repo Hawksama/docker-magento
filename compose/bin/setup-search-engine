@@ -2,16 +2,22 @@
 
 # Parse command line arguments
 LOCK_ENV=false
+NON_INTERACTIVE=false
 while [[ $# -gt 0 ]]; do
     case $1 in
         --lock-env)
             LOCK_ENV=true
             shift
             ;;
+        --non-interactive)
+            NON_INTERACTIVE=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--lock-env]"
-            echo "  --lock-env: Save configuration to env.php instead of database"
+            echo "Usage: $0 [--lock-env] [--non-interactive]"
+            echo "  --lock-env:        Save configuration to env.php instead of database"
+            echo "  --non-interactive: Accept the recommended search engine without prompting"
             exit 1
             ;;
     esac
@@ -198,7 +204,16 @@ else
     echo "4) Do nothing (keep current setting in database: ${current_search_engine})"
 fi
 echo "${blue}Recommended choice:${normal} ${recommended_choice} (${recommendation_message})"
-read -p "Enter the number of your choice [${recommended_choice}]: " search_engine_choice
+
+# Relying on stdin redirection here would only work by accident: if stdin is a
+# pipe carrying unrelated data, `read` consumes a line of it and the value falls
+# through to the "invalid choice" branch below, which exits 1.
+if [ "$NON_INTERACTIVE" = true ] || [ -n "$NONINTERACTIVE" ] || [ ! -t 0 ]; then
+    search_engine_choice="$recommended_choice"
+    echo "${yellow}Non-interactive: using recommended choice ${recommended_choice}.${normal}"
+else
+    read -p "Enter the number of your choice [${recommended_choice}]: " search_engine_choice
+fi
 
 # Provide default choice if no input is given
 search_engine_choice=${search_engine_choice:-$recommended_choice}

@@ -3,8 +3,10 @@ set -o errexit
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 <domain> [--all]"
+    echo "Usage: $0 [--all]"
     echo "  --all                Update base URLs for all stores without prompting"
+    echo
+    echo "The domain is read from MAGENTO_DOMAIN in env/phpfpm.env, not from an argument."
     exit 1
 }
 
@@ -20,9 +22,24 @@ if [ "$1" == "--all" ]; then
     shift # Shift past the --all argument
 fi
 
+# Refuse the interactive store picker when there is nobody to answer it.
+# fzf opens /dev/tty directly, so redirecting stdin does NOT prevent it from
+# blocking -- it would hang forever rather than fail. Fail fast instead.
+if [ "$UPDATE_ALL" != true ] && { [ -n "$NONINTERACTIVE" ] || [ ! -t 0 ]; }; then
+    echo "Refusing to open the interactive store picker without a TTY." >&2
+    echo "Re-run with: $0 --all" >&2
+    exit 2
+fi
+
 # Function to check and install fzf if not installed
 install_fzf() {
     if ! command -v fzf &> /dev/null; then
+        # Never trigger a package install from an unattended run.
+        if [ -n "$NONINTERACTIVE" ] || [ ! -t 0 ]; then
+            echo "fzf is not installed and this is a non-interactive run." >&2
+            echo "Re-run with: $0 --all" >&2
+            exit 2
+        fi
         echo "fzf is not installed. Installing fzf..."
         if [ "$(uname)" = "Darwin" ]; then
             # macOS

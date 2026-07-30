@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+# Reindex everything, tolerating individual indexer failures.
+#
+# Why two phases rather than a per-indexer loop:
+#
+#   Magento's indexer:reindex already wraps each indexer in `catch (\Throwable)`
+#   (vendor/magento/module-indexer/Console/Command/IndexerReindexCommand.php),
+#   prints the error, and CONTINUES the loop. So a broken third-party indexer
+#   does not stop the others -- it only makes the batch exit non-zero without
+#   saying which one broke. That lost exit code is what aborts bin/setup.
+#
+#   A naive one-at-a-time loop would be a regression. getIndexers() returns the
+#   full set in dependency order only when all indexers are requested; ask for a
+#   subset and it expands each id with its dependent subtree, and shared_index
+#   de-duplication resets with every new PHP process. Reindexing individually
+#   would drag catalogsearch_fulltext (the slowest indexer here) into several
+#   separate runs.
+#
+# Phase 1: one batch reindex -- correct order, shared_index de-duplication,
+#          a single Magento bootstrap.
+# Phase 2: only if phase 1 was non-zero. Ask indexer:status which indexers are
+#          still not Ready and retry those individually, to attribute the
+#          failure and print an exact re-run command. This also recovers the
+#          case where phase 1 died on a PHP fatal rather than a caught
+#          Throwable, leaving some indexers unrun.
+#
+# SETUP_SKIP_INDEXERS=id1,id2  permanently excludes known-broken indexers.
+
+SKIP_LIST=" $(printf '%s' "${SETUP_SKIP_INDEXERS:-}" | tr ',' ' ') "
+
+not_ready_indexers() {
+    bin/clinotty bin/magento indexer:status 2>/dev/null | awk -F'|' '/^\|/ {
+        id = $2; st = $4
+        gsub(/^[ \t]+|[ \t]+$/, "", id)
+        gsub(/^[ \t]+|[ \t]+$/, "", st)
+        if (id != "" && id != "ID" && st != "Ready") print id
+    }'
+}
+
+is_skipped() {
+    case "$SKIP_LIST" in
+        *" $1 "*) return 0 ;;
+        *)        return 1 ;;
+    esac
+}
+
+echo "Reindexing (batch)..."
+if bin/clinotty bin/magento indexer:reindex; then
+    echo "All indexers rebuilt successfully."
+    exit 0
+fi
+
+echo
+echo "Batch reindex reported failures; triaging individually..."
+
+failed=""
+skipped=""
+for id in $(not_ready_indexers); do
+    if is_skipped "$id"; then
+        echo "  skip (SETUP_SKIP_INDEXERS): $id"
+        skipped="$skipped $id"
+        continue
+    fi
+    if bin/clinotty bin/magento indexer:reindex "$id"; then
+        echo "  recovered: $id"
+    else
+        echo "  FAILED: $id"
+        echo "      re-run: bin/clinotty bin/magento indexer:reindex $id"
+        failed="$failed $id"
+    fi
+done
+
+[ -n "$skipped" ] && echo "Skipped by SETUP_SKIP_INDEXERS:$skipped"
+
+if [ -z "$failed" ]; then
+    echo "No indexers left failing."
+    exit 0
+fi
+
+echo "Indexers still failing:$failed"
+exit 1
