@@ -62,6 +62,11 @@ get_store_codes() {
     bin/clinotty bin/magento store:list | awk -F'|' 'NR > 3 && $6 !~ /Code|admin/ {gsub(/ /,"",$6); print $6}'
 }
 
+# Function to get a list of website codes
+get_website_codes() {
+    bin/clinotty bin/magento store:website:list | awk -F'|' 'NR > 3 && $5 !~ /Code|admin/ {gsub(/ /,"",$5); if ($5 != "") print $5}'
+}
+
 # Function to prompt user to select stores using fzf
 prompt_store_selection() {
     local store_codes=("$@")
@@ -128,6 +133,13 @@ bin/save-to-env-php 'web/unsecure/base_static_url' "{{unsecure_base_url}}static/
 
 # Optionally, clear the cookie domain
 bin/save-to-env-php 'web/cookie/cookie_domain' ''
+
+# Production DB dumps can set the cookie domain per website (e.g. example.com),
+# which overrides the default scope above and breaks customer login locally.
+for WEBSITE_CODE in $(get_website_codes); do
+    echo "Clearing cookie domain for website: $WEBSITE_CODE"
+    bin/save-to-env-php 'web/cookie/cookie_domain' '' "system/websites/${WEBSITE_CODE}"
+done
 
 echo "Setting dev/static/sign..."
 bin/save-to-env-php 'dev/static/sign' '0'
